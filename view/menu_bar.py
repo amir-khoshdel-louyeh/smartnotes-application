@@ -48,6 +48,7 @@ class MenuBar(QMenuBar):
         # View Menu
         view_menu = self.addMenu("&View")
         toggle_sidebar = QAction("Toggle Sidebar", self)
+        toggle_sidebar.setShortcut("Ctrl+M")
         view_menu.addAction(toggle_sidebar)
 
         # Help Menu
@@ -65,6 +66,7 @@ class MenuBar(QMenuBar):
         self.cut_action = cut_action
         self.copy_action = copy_action
         self.paste_action = paste_action
+        self.toggle_sidebar_action = toggle_sidebar
 
     def get_action(self, action_name):
         if action_name == "Open File":

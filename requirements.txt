@@ -2,8 +2,8 @@
 PyQt5==5.15.10
 
 # File Handling
-python-docx==1.1.2
-PyPDF2==3.0.1
+python-docx>=1.1.0
+pypdf>=4.0.0
 
 # Data Processing
 pandas==2.2.2
@@ -12,10 +12,10 @@ numpy==1.26.4
 # --- Optional Features ---
 # Uncomment the packages below if you need their features.
 
-# Plotting
-# matplotlib==3.9.0
-# plotly==5.22.0
-
 # Machine Learning / NLP
-# torch==2.3.0
-# transformers==4.41.1
+torch>=2.0.0
+transformers>=4.0.0
+sentencepiece>=0.1.91
+
+# Plotting
+matplotlib==3.9.0
