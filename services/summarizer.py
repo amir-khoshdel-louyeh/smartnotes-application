@@ -57,3 +57,16 @@ class SummarizationWorker(QRunnable):
             self.signals.finished.emit(summary[0]['summary_text'])
         except Exception as e:
             self.signals.error.emit(f"Summarization failed: {e}")
+
+
+class PreloadWorker(QRunnable):
+    """
+    A simple worker to preload the summarizer model in the background.
+    """
+    def run(self):
+        """Trigger the model loading."""
+        try:
+            SummarizerService.get_summarizer()
+        except Exception:
+            # Fails silently, the error will be caught during actual use.
+            pass

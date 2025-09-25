@@ -1,13 +1,10 @@
 # GUI Framework
 PyQt5==5.15.10
+PyQt5-sip==12.13.0 # Often needed for full PyQt5 functionality
 
 # File Handling
 python-docx>=1.1.0
 pypdf>=4.0.0
-
-# Data Processing
-pandas==2.2.2
-numpy==1.26.4
 
 # --- Optional Features ---
 # Uncomment the packages below if you need their features.
@@ -15,7 +12,3 @@ numpy==1.26.4
 # Machine Learning / NLP
 torch>=2.0.0
 transformers>=4.0.0
-sentencepiece>=0.1.91
-
-# Plotting
-matplotlib==3.9.0
