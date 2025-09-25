@@ -105,13 +105,14 @@ class MainWindow(QMainWindow):
 
         # Preload AI models in the background
         self.preload_models()
-        
-        # Create a default empty tab to start
-        self.file_handler.new_file(is_initial_tab=True)
 
     def current_editor(self) -> EditorArea:
         """Returns the currently active EditorArea widget."""
-        return self.tab_widget.currentWidget()
+        widget = self.tab_widget.currentWidget()
+        # Return the widget only if it's an EditorArea, otherwise None
+        if isinstance(widget, EditorArea):
+            return widget
+        return None
 
     def on_tab_changed(self, index):
         """Handles logic when the active tab changes."""
@@ -122,19 +123,18 @@ class MainWindow(QMainWindow):
         self.thread_pool.start(PreloadWorker())
 
     def closeEvent(self, event):
-        # Iterate through all tabs and check for unsaved changes
-        for i in range(self.tab_widget.count() - 1, -1, -1):
-            editor = self.tab_widget.widget(i)
-            if editor.document().isModified():
-                self.tab_widget.setCurrentIndex(i)
-                # The return value of close_tab will be False if the user cancels
-                if not self.file_handler.close_tab(i):
-                    event.ignore()
-                    return
-
-        # If all tabs are handled, save settings and accept closing
-        self.settings.sync()
-        event.accept()
+        """Handles the window close event."""
+        # Use the existing close_all_files logic.
+        # This will prompt to save for each unsaved tab.
+        self.file_handler.close_all_files()
+        
+        # After attempting to close all, check if any tabs remain.
+        # A tab might remain if the user cancels a "Save" dialog.
+        if self.tab_widget.count() > 1 or (self.tab_widget.count() == 1 and self.tab_widget.widget(0).file_path is not None):
+            event.ignore() # User cancelled, so don't close the window.
+        else:
+            self.settings.sync() # All tabs closed, so save settings and exit.
+            event.accept()
 
     def connect_signals(self):
         # File Menu
@@ -145,6 +145,7 @@ class MainWindow(QMainWindow):
         self.menu_bar.actions["print"].triggered.connect(self.print_file)
         self.menu_bar.actions["export_pdf"].triggered.connect(self.export_to_pdf) # Can be moved later
         self.menu_bar.actions["close"].triggered.connect(self.file_handler.close_current_file)
+        self.menu_bar.actions["close_all"].triggered.connect(self.file_handler.close_all_files)
         self.menu_bar.actions["exit"].triggered.connect(self.close)
 
         # Edit Menu
@@ -219,7 +220,11 @@ class MainWindow(QMainWindow):
 
     def on_modification_changed(self, editor, modified):
         """Updates the tab title with an asterisk when modified."""
-        index = self.tab_widget.indexOf(editor)
+        widget = editor
+        if not isinstance(widget, EditorArea): # Should always be an editor, but good practice to check
+            return
+
+        index = self.tab_widget.indexOf(widget)
         if index != -1:
             tab_text = self.tab_widget.tabText(index)
             # Prevent adding multiple asterisks
@@ -568,10 +573,12 @@ class MainWindow(QMainWindow):
             self.status_bar.showMessage(f"Successfully exported to {os.path.basename(file_path)}", 5000)
 
     # --- Placeholder Methods for Menu Actions ---
-
+    
     def find_next(self):
         editor = self.current_editor()
-        if not editor: return
+        if not editor: 
+            self.status_bar.showMessage("Find is only available in text editors.", 3000)
+            return
         query = self.find_input.text()
         if not query:
             return
@@ -588,7 +595,9 @@ class MainWindow(QMainWindow):
 
     def find_previous(self):
         editor = self.current_editor()
-        if not editor: return
+        if not editor:
+            self.status_bar.showMessage("Find is only available in text editors.", 3000)
+            return
         query = self.find_input.text()
         if not query:
             return
@@ -616,14 +625,16 @@ class MainWindow(QMainWindow):
             self.find_bar.show()
 
     def update_window_title(self):
-        editor = self.current_editor()
-        if not editor:
+        widget = self.tab_widget.currentWidget()
+        if not widget:
             self.setWindowTitle("StudyMate")
             return
         
-        file_path = editor.file_path
+        file_path = widget.file_path
         title = os.path.basename(file_path) if file_path else "Untitled"
-        if editor.document().isModified():
+
+        # Check if it's an editor and is modified
+        if isinstance(widget, EditorArea) and widget.document().isModified():
             title += "*"
         
         self.setWindowTitle(f"{title} - StudyMate")

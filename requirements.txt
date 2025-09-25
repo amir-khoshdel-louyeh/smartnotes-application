@@ -1,3 +1,6 @@
+# System Dependencies (must be installed separately)
+# - libreoffice (for .odt to .pdf conversion, e.g., `sudo apt-get install libreoffice`)
+
 # GUI Framework
 PyQt5==5.15.10
 PyQt5-sip==12.13.0 # Often needed for full PyQt5 functionality
@@ -5,10 +8,9 @@ PyQt5-sip==12.13.0 # Often needed for full PyQt5 functionality
 # File Handling
 python-docx>=1.1.0
 pypdf>=4.0.0
+PyMuPDF>=1.23.0 # For rendering PDF files
+odfpy>=1.4.1
 
-# --- Optional Features ---
-# Uncomment the packages below if you need their features.
-
-# Machine Learning / NLP
+# Machine Learning / NLP for Summarization and Key Points
 torch>=2.0.0
 transformers>=4.0.0

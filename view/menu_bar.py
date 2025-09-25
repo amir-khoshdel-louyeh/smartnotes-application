@@ -32,6 +32,9 @@ class MenuBar(QMenuBar):
         close_action = QAction("Close", self)
         close_action.setShortcut(QKeySequence("Ctrl+W"))
 
+        close_all_action = QAction("Close All", self)
+        close_all_action.setShortcut("Ctrl+Shift+W")
+
         exit_action = QAction("Exit", self)
         exit_action.setShortcut(QKeySequence.Quit)
 
@@ -43,7 +46,7 @@ class MenuBar(QMenuBar):
         file_menu.addAction(print_action)
         file_menu.addAction(export_pdf_action)
         file_menu.addSeparator()
-        file_menu.addAction(close_action)
+        file_menu.addActions([close_action, close_all_action])
         file_menu.addSeparator()
         file_menu.addAction(exit_action)
 
@@ -134,6 +137,7 @@ class MenuBar(QMenuBar):
             "print": print_action,
             "export_pdf": export_pdf_action,
             "close": close_action,
+            "close_all": close_all_action,
             "exit": exit_action,
             "undo": self.undo_action,
             "redo": self.redo_action,
