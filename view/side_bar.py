@@ -1,6 +1,7 @@
-from PyQt5.QtWidgets import QDockWidget, QTabWidget, QWidget, QVBoxLayout, QLabel, QStyle, QPushButton, QComboBox, QTextEdit, QFormLayout, QPlainTextEdit, QFontComboBox, QSpinBox, QCheckBox, QGroupBox, QHBoxLayout, QLineEdit, QTreeView, QFileSystemModel, QSizePolicy
+from PyQt5.QtWidgets import QDockWidget, QTabWidget, QWidget, QVBoxLayout, QLabel, QStyle, QPushButton, QComboBox, QTextEdit, QFormLayout, QPlainTextEdit, QFontComboBox, QSpinBox, QCheckBox, QGroupBox, QHBoxLayout, QLineEdit, QTreeView, QFileSystemModel, QSizePolicy, QStackedWidget, QFileDialog, QToolBar, QAction
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, QDir, pyqtSignal
+import os
 
 class SideBar(QDockWidget):
     resized = pyqtSignal(int)
@@ -46,21 +47,124 @@ class SideBar(QDockWidget):
 
     def init_explore_tab(self):
         self.explore_tab = QWidget()
-        layout = QVBoxLayout(self.explore_tab)
-        layout.setContentsMargins(0, 0, 0, 0)
+        # Use a QVBoxLayout to hold the stacked widget
+        explore_tab_layout = QVBoxLayout(self.explore_tab)
+        explore_tab_layout.setContentsMargins(5, 5, 5, 5)
+        explore_tab_layout.setSpacing(0)
 
+        # --- Stacked Widget for switching between welcome and file view ---
+        self.explore_stack = QStackedWidget()
+        explore_tab_layout.addWidget(self.explore_stack)
+
+        # --- 1. Welcome Screen Widget ---
+        welcome_widget = QWidget()
+        welcome_layout = QVBoxLayout(welcome_widget)
+        welcome_layout.setAlignment(Qt.AlignCenter)
+
+        welcome_label = QLabel("File Explorer")
+        welcome_label.setAlignment(Qt.AlignCenter)
+        welcome_label.setStyleSheet("font-size: 14pt; font-weight: bold; margin-bottom: 10px;")
+
+        self.open_folder_button = QPushButton(self.style().standardIcon(QStyle.SP_DirOpenIcon), " Open Folder")
+        self.open_file_button = QPushButton(self.style().standardIcon(QStyle.SP_FileIcon), " Open File")
+        self.new_file_button = QPushButton(self.style().standardIcon(QStyle.SP_FileDialogNewFolder), " New File")
+
+        welcome_layout.addWidget(QLabel("You have not yet opened a folder."))
+        welcome_layout.addWidget(self.open_folder_button)
+        welcome_layout.addWidget(self.open_file_button)
+        welcome_layout.addWidget(self.new_file_button)
+        welcome_layout.addStretch()
+
+        # --- 2. File Explorer View (initially just a container) ---
+        self.explore_view_widget = QWidget()
+        tree_layout = QVBoxLayout(self.explore_view_widget)
+        tree_layout.setContentsMargins(0, 0, 0, 0)
+        tree_layout.setSpacing(0)
+
+        # Toolbar for file explorer
+        toolbar = QToolBar()
+        toolbar.setIconSize(self.style().standardIcon(QStyle.SP_DirOpenIcon).actualSize(self.sizeHint() / 2)) # Smaller icons
+        self.new_file_action = QAction(self.style().standardIcon(QStyle.SP_FileDialogNewFolder), "New File", self)
+        self.new_folder_action = QAction(self.style().standardIcon(QStyle.SP_DirIcon), "New Folder", self)
+        self.refresh_action = QAction(self.style().standardIcon(QStyle.SP_BrowserReload), "Refresh", self)
+        self.collapse_action = QAction(self.style().standardIcon(QStyle.SP_ArrowUp), "Collapse All", self)
+        toolbar.addAction(self.new_file_action)
+        toolbar.addAction(self.new_folder_action)
+        toolbar.addAction(self.refresh_action)
+        toolbar.addAction(self.collapse_action)
+        tree_layout.addWidget(toolbar)
+
+        # File System Model and Tree View
         self.file_model = QFileSystemModel()
-        self.file_model.setRootPath(QDir.homePath())
         self.explore_view = QTreeView()
         self.explore_view.setModel(self.file_model)
-        self.explore_view.setRootIndex(self.file_model.index(QDir.homePath()))
         self.explore_view.setHeaderHidden(True)
-
-        # Hide columns for size, type, and date modified to only show the file/directory names
+        self.explore_view.setContextMenuPolicy(Qt.CustomContextMenu)
         self.explore_view.hideColumn(1)  # Size
         self.explore_view.hideColumn(2)  # Type
         self.explore_view.hideColumn(3)  # Date Modified
-        layout.addWidget(self.explore_view)
+        self.explore_view.setIndentation(15)
+        self.explore_view.setSortingEnabled(True)
+        tree_layout.addWidget(self.explore_view)
+
+        self.explore_stack.addWidget(welcome_widget)
+        self.explore_stack.addWidget(self.explore_view_widget)
+
+        # --- Connect Signals ---
+        self.open_folder_button.clicked.connect(self.open_folder_in_explorer)
+        # Connect to MainWindow methods
+        self.open_file_button.clicked.connect(self.parent().open_file)
+        self.new_file_button.clicked.connect(self.parent().new_file)
+
+        # Connect toolbar actions
+        self.new_file_action.triggered.connect(self.parent().new_file)
+        self.new_folder_action.triggered.connect(self.create_new_folder)
+        self.refresh_action.triggered.connect(self.refresh_explorer)
+        self.collapse_action.triggered.connect(self.explore_view.collapseAll)
+
+    def open_folder_in_explorer(self):
+        """Opens a directory dialog and sets the file explorer root."""
+        folder_path = QFileDialog.getExistingDirectory(self, "Open Folder", QDir.homePath())
+        if folder_path:
+            self.file_model.setRootPath(folder_path)
+            self.explore_view.setRootIndex(self.file_model.index(folder_path))
+            self.explore_stack.setCurrentWidget(self.explore_view_widget)
+            self.add_actions_to_explorer_view()
+
+    def add_actions_to_explorer_view(self):
+        """Moves the action buttons to the bottom of the explorer view."""
+        if self.open_folder_button.parent() != self.explore_view_widget:
+            explorer_layout = self.explore_view_widget.layout()
+            explorer_layout.addStretch()
+            explorer_layout.addWidget(self.open_folder_button)
+            explorer_layout.addWidget(self.open_file_button)
+            explorer_layout.addWidget(self.new_file_button)
+
+
+    def show_directory_in_explorer(self, path):
+        """Sets the file explorer root to the directory of the given path."""
+        if not path:
+            return
+        folder_path = os.path.dirname(path) if os.path.isfile(path) else path
+        self.file_model.setRootPath(folder_path)
+        self.explore_view.setRootIndex(self.file_model.index(folder_path))
+        self.explore_stack.setCurrentWidget(self.explore_view_widget)
+        self.add_actions_to_explorer_view()
+
+    def create_new_folder(self):
+        """Creates a new folder in the currently selected directory."""
+        index = self.explore_view.currentIndex()
+        if not index.isValid():
+            # If nothing is selected, use the root path
+            dir_path = self.file_model.rootPath()
+        else:
+            dir_path = self.file_model.filePath(index)
+            if not self.file_model.isDir(index):
+                dir_path = self.file_model.filePath(index.parent())
+        self.file_model.mkdir(self.file_model.index(dir_path), "New Folder")
+
+    def refresh_explorer(self):
+        self.file_model.setRootPath(self.file_model.rootPath()) # Re-reading the root path refreshes it
 
     def init_settings_tab(self):
         self.settings_tab = QWidget()

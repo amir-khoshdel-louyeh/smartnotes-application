@@ -174,15 +174,40 @@ class MainWindow(QMainWindow):
         self.sidebar.toggle_sidebar_button_scheduler.clicked.connect(self.toggle_sidebar_visibility)
         self.sidebar.tabs.tabBarClicked.connect(self.handle_tab_bar_click)
         # Explore Tab
+        # The buttons are now connected inside side_bar.py to self.parent() which is this MainWindow instance
         self.sidebar.explore_view.doubleClicked.connect(self.on_explore_file_selected)
 
     def open_external_link(self, url_string):
         QDesktopServices.openUrl(QUrl(url_string))
 
     def new_file(self):
-        self.editor.clear()
-        self.current_file_path = None
-        self.setWindowTitle("StudyMate - New File")
+        """Prompts the user to create a new file, asking for name and location."""
+        options = QFileDialog.Options()
+        # Added Markdown files to the save dialog filter
+        file_path, selected_filter = QFileDialog.getSaveFileName(self, "Create New File", "", "Text Files (*.txt);;Markdown Files (*.md *.markdown);;Python Files (*.py);;All Files (*)", options=options)
+
+        if file_path:
+            # Ensure correct extension if none is provided and it's the selected filter
+            if not os.path.splitext(file_path)[1]:
+                if "(*.txt)" in selected_filter:
+                    file_path += '.txt'
+                elif "(*.md *.markdown)" in selected_filter:
+                    file_path += '.md'
+                elif "(*.py)" in selected_filter:
+                    file_path += '.py'
+
+            self.editor.clear()
+            self.current_file_path = file_path
+            try:
+                # Create an empty file so it exists on the filesystem
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    pass  # Just create the file
+                self.setWindowTitle(f"StudyMate - {os.path.basename(file_path)}")
+                # Update the explorer to show the new file's directory
+                self.sidebar.show_directory_in_explorer(file_path)
+            except Exception as e:
+                self.status_bar.showMessage(f"Error creating file: {e}", 5000)
+                self.current_file_path = None
 
     def on_explore_file_selected(self, index):
         file_path = self.sidebar.file_model.filePath(index)
@@ -251,7 +276,8 @@ class MainWindow(QMainWindow):
 
     def open_file(self):
         options = QFileDialog.Options()
-        file_path, _ = QFileDialog.getOpenFileName(self, "Open File", "", "All Files (*);;Text Files (*.txt);;PDF Files (*.pdf);;Word Documents (*.docx)", options=options)
+        # Added Markdown files to the open dialog filter
+        file_path, _ = QFileDialog.getOpenFileName(self, "Open File", "", "All Files (*);;Text Files (*.txt);;Markdown Files (*.md *.markdown);;Python Files (*.py);;PDF Files (*.pdf);;Word Documents (*.docx)", options=options)
         if file_path:
             self.load_file(file_path)
 
@@ -279,15 +305,22 @@ class MainWindow(QMainWindow):
             readers = {
                 '.txt': self._read_txt,
                 '.docx': self._read_docx,
+                '.md': self._read_txt, # Treat markdown as plain text for now
+                '.markdown': self._read_txt, # Treat markdown as plain text for now
+                '.py': self._read_txt, # Treat python files as plain text
                 '.pdf': self._read_pdf,
             }
 
-            reader_func = readers.get(ext_lower)
-            content = reader_func(file_path) if reader_func else f"Unsupported file type: {extension}"
+            # Default to reading as a text file if the extension is not in the readers dict
+            reader_func = readers.get(ext_lower, self._read_txt)
+            content = reader_func(file_path)
 
             self.editor.setText(content)
+            self.setWindowTitle(f"StudyMate - {os.path.basename(file_path)}")
             self.status_bar.showMessage(f"Successfully loaded {os.path.basename(file_path)}", 5000)
             self.current_file_path = file_path
+            # Update the explorer to show the opened file's directory
+            self.sidebar.show_directory_in_explorer(file_path)
         except Exception as e:
             self.editor.setText(f"Error loading file: {file_path}\n\n{str(e)}")
             self.status_bar.showMessage(f"Error loading file", 5000)
