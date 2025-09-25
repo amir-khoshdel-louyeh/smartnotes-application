@@ -1,6 +1,7 @@
 from PyQt5.QtWidgets import QDockWidget, QTabWidget, QWidget, QVBoxLayout, QLabel, QStyle, QPushButton, QComboBox, QTextEdit, QFormLayout, QPlainTextEdit, QFontComboBox, QSpinBox, QCheckBox, QGroupBox, QHBoxLayout, QLineEdit, QTreeView, QFileSystemModel, QSizePolicy, QStackedWidget, QFileDialog, QToolBar, QAction
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, QDir, pyqtSignal
+from view.scheduler_tab import SchedulerTab
 import os
 
 class SideBar(QDockWidget):
@@ -28,7 +29,7 @@ class SideBar(QDockWidget):
         # Settings Tab
         self.init_settings_tab()
         # Scheduler Tab
-        self.init_scheduler_tab(scheduler_icon)
+        self.scheduler_tab = SchedulerTab(self)
 
         # Now add all initialized tabs to the QTabWidget in the desired order
         self.tabs.addTab(self.explore_tab, explore_icon, "Explore")
@@ -248,35 +249,3 @@ class SideBar(QDockWidget):
         self.summary_output.setPlaceholderText("Summary will appear here...")
         layout.addWidget(self.summary_output)
         self.ai_tab.setLayout(layout)
-
-    def init_scheduler_tab(self, icon):
-        self.scheduler_tab = QWidget()
-        layout = QVBoxLayout()
-        
-        # --- Study Plan Group ---
-        study_plan_group = QGroupBox("Study Plan")
-        study_plan_layout = QVBoxLayout(study_plan_group)
-        self.suggest_schedule_button = QPushButton("Suggest Study Plan")
-        study_plan_layout.addWidget(self.suggest_schedule_button)
-        self.schedule_output = QPlainTextEdit()
-        self.schedule_output.setReadOnly(True)
-        self.schedule_output.setPlaceholderText("Your personalized study plan will appear here...")
-        study_plan_layout.addWidget(self.schedule_output)
-        
-        # -- Toggle Sidebar Button --
-        self.toggle_sidebar_button_scheduler = QPushButton("Toggle Sidebar")
-        study_plan_layout.addWidget(self.toggle_sidebar_button_scheduler)
-        layout.addWidget(study_plan_group)
-
-        # --- Reminders Group ---
-        reminders_group = QGroupBox("Reminders")
-        reminders_layout = QFormLayout(reminders_group)
-        self.reminders_checkbox = QCheckBox("Enable Reminders")
-        self.reminder_freq_combo = QComboBox()
-        self.reminder_freq_combo.addItems(["Daily", "Weekly"])
-        reminders_layout.addRow(self.reminders_checkbox)
-        reminders_layout.addRow("Frequency:", self.reminder_freq_combo)
-        layout.addWidget(reminders_group)
-        
-        layout.addStretch()
-        self.scheduler_tab.setLayout(layout)

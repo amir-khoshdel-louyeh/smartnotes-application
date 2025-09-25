@@ -191,7 +191,6 @@ class MainWindow(QMainWindow):
         self.sidebar.chatgpt_button.clicked.connect(lambda: self.open_external_link("https://chat.openai.com/"))
         self.sidebar.copilot_button.clicked.connect(lambda: self.open_external_link("https://copilot.microsoft.com/"))
         # Scheduler Tab
-        self.sidebar.suggest_schedule_button.clicked.connect(self.suggest_study_plan)
         # Settings Tab
         self.sidebar.theme_combo.currentTextChanged.connect(self.set_theme)
         self.sidebar.font_combo.currentFontChanged.connect(self.set_editor_font)
@@ -202,7 +201,6 @@ class MainWindow(QMainWindow):
         self.sidebar.sidebar_font_size_increase_button.clicked.connect(lambda: self.change_sidebar_font_size(1))
         self.sidebar.sidebar_font_size_decrease_button.clicked.connect(lambda: self.change_sidebar_font_size(-1))
         self.sidebar.resized.connect(self.on_sidebar_manually_resized)
-        self.sidebar.toggle_sidebar_button_scheduler.clicked.connect(self.toggle_sidebar_visibility)
         self.sidebar.tabs.tabBarClicked.connect(self.handle_tab_bar_click)
         # Explore Tab
         # The buttons are now connected inside side_bar.py to self.parent() which is this MainWindow instance
