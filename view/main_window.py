@@ -1,36 +1,37 @@
-from PyQt5.QtWidgets import QMainWindow, QFileDialog, QApplication, QAction, QTextEdit, QWidget, QHBoxLayout, QLineEdit, QPushButton, QCheckBox, QVBoxLayout
+from PyQt5.QtWidgets import QMainWindow, QFileDialog, QApplication, QAction, QTextEdit, QWidget, QHBoxLayout, QLineEdit, QPushButton, QCheckBox, QVBoxLayout, QTabWidget, QLabel, QMessageBox
 from PyQt5.QtCore import Qt, QSettings, QThreadPool, QTimer
-from PyQt5.QtGui import QFont, QTextOption, QDesktopServices, QTextDocument, QTextCursor, QKeySequence
+from PyQt5.QtGui import QFont, QTextOption, QDesktopServices, QTextDocument, QTextCursor, QKeySequence, QIcon
 from PyQt5.QtPrintSupport import QPrinter
 from PyQt5.QtCore import QUrl
 from view.menu_bar import MenuBar
 from view.side_bar import SideBar
 from view.editor_area import EditorArea
+from view.file_handler import FileHandler
 from view.status_bar import StatusBar
 from services.summarizer import SummarizationWorker, PreloadWorker
 from services.key_points_extractor import KeyPointsWorker
-
 import os
-import sys
-import docx
-import pypdf
 
 class MainWindow(QMainWindow):
     def __init__(self):
         self.settings = QSettings("StudyMate", "StudyMate") # OrganizationName, ApplicationName
         super().__init__()
         self.setWindowTitle("StudyMate")
-        self.setGeometry(100, 100, 1200, 800)
-        self.current_file_path = None
+        self.setGeometry(100, 100, 1400, 900)
         self.sidebar_width = 300 # Default/initial width
         self.thread_pool = QThreadPool()
 
         # Menu Bar
         self.menu_bar = MenuBar(self)
         self.setMenuBar(self.menu_bar)
-
-        # Central Editor
-        self.editor = EditorArea()
+        
+        # Tabbed Editor Area
+        self.tab_widget = QTabWidget()
+        self.tab_widget.setTabsClosable(True)
+        self.tab_widget.setMovable(True)
+        self.tab_widget.setDocumentMode(True) # More compact look
+        self.tab_widget.setTabBarAutoHide(True) # Hide tab bar if only one tab
+        self.tab_widget.currentChanged.connect(self.on_tab_changed)
 
         # --- Find Bar (initially hidden) ---
         self.find_bar = QWidget(self)
@@ -71,7 +72,7 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(0,0,0,0)
         main_layout.setSpacing(0)
         main_layout.addWidget(self.find_bar)
-        main_layout.addWidget(self.editor)
+        main_layout.addWidget(self.tab_widget)
         
         # Side Bar
         self.sidebar = SideBar(self)
@@ -81,10 +82,17 @@ class MainWindow(QMainWindow):
         self.status_bar = StatusBar()
         self.setStatusBar(self.status_bar)
 
+        # Handlers (must be initialized after the widgets they handle)
+        self.file_handler = FileHandler(self)
+        
+        # Connect signals that depend on handlers
+        self.tab_widget.tabCloseRequested.connect(self.file_handler.close_tab)
+
         # Load settings
         self.load_settings()
 
         # Connect find bar signals
+        # Note: self.editor is now self.current_editor()
         self.find_input.returnPressed.connect(self.find_next_button.click)
         self.find_next_button.clicked.connect(self.find_next)
         self.find_prev_button.clicked.connect(self.find_previous)
@@ -97,38 +105,61 @@ class MainWindow(QMainWindow):
 
         # Preload AI models in the background
         self.preload_models()
+        
+        # Create a default empty tab to start
+        self.file_handler.new_file(is_initial_tab=True)
+
+    def current_editor(self) -> EditorArea:
+        """Returns the currently active EditorArea widget."""
+        return self.tab_widget.currentWidget()
+
+    def on_tab_changed(self, index):
+        """Handles logic when the active tab changes."""
+        self.update_window_title()
+        self.update_status_bar()
 
     def preload_models(self):
         self.thread_pool.start(PreloadWorker())
 
     def closeEvent(self, event):
-        # Save settings before closing
+        # Iterate through all tabs and check for unsaved changes
+        for i in range(self.tab_widget.count() - 1, -1, -1):
+            editor = self.tab_widget.widget(i)
+            if editor.document().isModified():
+                self.tab_widget.setCurrentIndex(i)
+                # The return value of close_tab will be False if the user cancels
+                if not self.file_handler.close_tab(i):
+                    event.ignore()
+                    return
+
+        # If all tabs are handled, save settings and accept closing
         self.settings.sync()
         event.accept()
 
     def connect_signals(self):
         # File Menu
-        self.menu_bar.actions["new"].triggered.connect(self.new_file)
-        self.menu_bar.actions["open"].triggered.connect(self.open_file)
-        self.menu_bar.actions["save"].triggered.connect(self.save_file)
-        self.menu_bar.actions["save_as"].triggered.connect(self.save_file_as)
+        self.menu_bar.actions["new"].triggered.connect(self.file_handler.new_file)
+        self.menu_bar.actions["open"].triggered.connect(self.file_handler.open_file)
+        self.menu_bar.actions["save"].triggered.connect(self.file_handler.save_file)
+        self.menu_bar.actions["save_as"].triggered.connect(self.file_handler.save_file_as)
         self.menu_bar.actions["print"].triggered.connect(self.print_file)
-        self.menu_bar.actions["export_pdf"].triggered.connect(self.export_to_pdf)
-        self.menu_bar.actions["close"].triggered.connect(self.close_file)
+        self.menu_bar.actions["export_pdf"].triggered.connect(self.export_to_pdf) # Can be moved later
+        self.menu_bar.actions["close"].triggered.connect(self.file_handler.close_current_file)
         self.menu_bar.actions["exit"].triggered.connect(self.close)
 
         # Edit Menu
-        self.menu_bar.undo_action.triggered.connect(self.editor.undo)
-        self.menu_bar.redo_action.triggered.connect(self.editor.redo)
-        self.menu_bar.cut_action.triggered.connect(self.editor.cut)
-        self.menu_bar.copy_action.triggered.connect(self.editor.copy)
-        self.menu_bar.paste_action.triggered.connect(self.editor.paste)
+        # These actions are now connected dynamically or need a wrapper
+        self.menu_bar.undo_action.triggered.connect(lambda: self.current_editor().undo() if self.current_editor() else None)
+        self.menu_bar.redo_action.triggered.connect(lambda: self.current_editor().redo() if self.current_editor() else None)
+        self.menu_bar.cut_action.triggered.connect(lambda: self.current_editor().cut() if self.current_editor() else None)
+        self.menu_bar.copy_action.triggered.connect(lambda: self.current_editor().copy() if self.current_editor() else None)
+        self.menu_bar.paste_action.triggered.connect(lambda: self.current_editor().paste() if self.current_editor() else None)
         # For delete, we can use the editor's delete function directly
         delete_action = QAction(self)
         delete_action.setShortcut(Qt.Key_Delete)
-        delete_action.triggered.connect(self.editor.textCursor().deleteChar)
+        delete_action.triggered.connect(lambda: self.current_editor().textCursor().deleteChar() if self.current_editor() else None)
         self.addAction(delete_action) # Add as a top-level action to catch the shortcut
-        self.menu_bar.actions["select_all"].triggered.connect(self.editor.selectAll)
+        self.menu_bar.actions["select_all"].triggered.connect(lambda: self.current_editor().selectAll() if self.current_editor() else None)
         self.menu_bar.actions["replace"].triggered.connect(self.replace_text)
         # Connect Ctrl+F to the replace_text method as well
         find_shortcut_action = QAction(self)
@@ -175,48 +206,41 @@ class MainWindow(QMainWindow):
         self.sidebar.tabs.tabBarClicked.connect(self.handle_tab_bar_click)
         # Explore Tab
         # The buttons are now connected inside side_bar.py to self.parent() which is this MainWindow instance
+        self.sidebar.open_folder_button.clicked.connect(self.sidebar.open_folder_in_explorer)
+        self.sidebar.open_file_button.clicked.connect(self.file_handler.open_file)
+        self.sidebar.new_file_button.clicked.connect(self.file_handler.new_file)
+        # Toolbar actions in sidebar
+        self.sidebar.new_file_action.triggered.connect(self.file_handler.new_file)
+        self.sidebar.new_folder_action.triggered.connect(self.sidebar.create_new_folder)
+        self.sidebar.refresh_action.triggered.connect(self.sidebar.refresh_explorer)
+        self.sidebar.collapse_action.triggered.connect(self.sidebar.explore_view.collapseAll)
         self.sidebar.explore_view.doubleClicked.connect(self.on_explore_file_selected)
 
     def open_external_link(self, url_string):
         QDesktopServices.openUrl(QUrl(url_string))
 
-    def new_file(self):
-        """Prompts the user to create a new file, asking for name and location."""
-        options = QFileDialog.Options()
-        # Added Markdown files to the save dialog filter
-        file_path, selected_filter = QFileDialog.getSaveFileName(self, "Create New File", "", "Text Files (*.txt);;Markdown Files (*.md *.markdown);;Python Files (*.py);;All Files (*)", options=options)
-
-        if file_path:
-            # Ensure correct extension if none is provided and it's the selected filter
-            if not os.path.splitext(file_path)[1]:
-                if "(*.txt)" in selected_filter:
-                    file_path += '.txt'
-                elif "(*.md *.markdown)" in selected_filter:
-                    file_path += '.md'
-                elif "(*.py)" in selected_filter:
-                    file_path += '.py'
-
-            self.editor.clear()
-            self.current_file_path = file_path
-            try:
-                # Create an empty file so it exists on the filesystem
-                with open(file_path, 'w', encoding='utf-8') as f:
-                    pass  # Just create the file
-                self.setWindowTitle(f"StudyMate - {os.path.basename(file_path)}")
-                # Update the explorer to show the new file's directory
-                self.sidebar.show_directory_in_explorer(file_path)
-            except Exception as e:
-                self.status_bar.showMessage(f"Error creating file: {e}", 5000)
-                self.current_file_path = None
+    def on_modification_changed(self, editor, modified):
+        """Updates the tab title with an asterisk when modified."""
+        index = self.tab_widget.indexOf(editor)
+        if index != -1:
+            tab_text = self.tab_widget.tabText(index)
+            # Prevent adding multiple asterisks
+            if modified and not tab_text.endswith('*'):
+                self.tab_widget.setTabText(index, tab_text + '*')
+            elif not modified and tab_text.endswith('*'):
+                self.tab_widget.setTabText(index, tab_text[:-1])
+        self.update_window_title()
 
     def on_explore_file_selected(self, index):
         file_path = self.sidebar.file_model.filePath(index)
         # Check if it's a file, not a directory
         if os.path.isfile(file_path):
-            self.load_file(file_path)
+            self.file_handler.open_file(file_path=file_path)
 
     def run_summarization(self):
-        text_to_summarize = self.editor.toPlainText()
+        editor = self.current_editor()
+        if not editor: return
+        text_to_summarize = editor.toPlainText()
         if not text_to_summarize.strip():
             self.sidebar.summary_output.setText("Editor is empty. Nothing to summarize.")
             return
@@ -245,7 +269,9 @@ class MainWindow(QMainWindow):
         self.sidebar.summary_output.setPlaceholderText("Summary will appear here...")
 
     def run_key_points_extraction(self):
-        text_to_analyze = self.editor.toPlainText()
+        editor = self.current_editor()
+        if not editor: return
+        text_to_analyze = editor.toPlainText()
         if not text_to_analyze.strip():
             self.sidebar.summary_output.setText("Editor is empty. Nothing to analyze.")
             return
@@ -274,71 +300,18 @@ class MainWindow(QMainWindow):
         # Placeholder for adaptive scheduler logic
         self.sidebar.schedule_output.setPlainText("Feature coming soon!\n\nThis will analyze your notes and suggest a study plan based on topics and your activity.")
 
-    def open_file(self):
-        options = QFileDialog.Options()
-        # Added Markdown files to the open dialog filter
-        file_path, _ = QFileDialog.getOpenFileName(self, "Open File", "", "All Files (*);;Text Files (*.txt);;Markdown Files (*.md *.markdown);;Python Files (*.py);;PDF Files (*.pdf);;Word Documents (*.docx)", options=options)
-        if file_path:
-            self.load_file(file_path)
-
-    def _read_txt(self, file_path):
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return f.read()
-
-    def _read_docx(self, file_path):
-        doc = docx.Document(file_path)
-        return "\n".join([para.text for para in doc.paragraphs])
-
-    def _read_pdf(self, file_path):
-        content = ""
-        with open(file_path, 'rb') as f:
-            reader = pypdf.PdfReader(f)
-            for page in reader.pages:
-                content += page.extract_text() + "\n"
-        return content
-
-    def load_file(self, file_path):
-        try:
-            _, extension = os.path.splitext(file_path)
-            ext_lower = extension.lower()
-
-            readers = {
-                '.txt': self._read_txt,
-                '.docx': self._read_docx,
-                '.md': self._read_txt, # Treat markdown as plain text for now
-                '.markdown': self._read_txt, # Treat markdown as plain text for now
-                '.py': self._read_txt, # Treat python files as plain text
-                '.pdf': self._read_pdf,
-            }
-
-            # Default to reading as a text file if the extension is not in the readers dict
-            reader_func = readers.get(ext_lower, self._read_txt)
-            content = reader_func(file_path)
-
-            self.editor.setText(content)
-            self.setWindowTitle(f"StudyMate - {os.path.basename(file_path)}")
-            self.status_bar.showMessage(f"Successfully loaded {os.path.basename(file_path)}", 5000)
-            self.current_file_path = file_path
-            # Update the explorer to show the opened file's directory
-            self.sidebar.show_directory_in_explorer(file_path)
-        except Exception as e:
-            self.editor.setText(f"Error loading file: {file_path}\n\n{str(e)}")
-            self.status_bar.showMessage(f"Error loading file", 5000)
-
-    def close_file(self):
-        # In a more complex app, you'd check for unsaved changes here.
-        self.editor.clear()
-        self.current_file_path = None
-        self.setWindowTitle("StudyMate")
-
     def editor_zoom_in(self):
-        self.editor.zoomIn()
-        current_size = self.editor.font().pointSize()
+        editor = self.current_editor()
+        if not editor: return
+        editor.zoomIn()
+        current_size = editor.font().pointSize()
         self.set_editor_font_size(current_size)
 
     def editor_zoom_out(self):
-        self.editor.zoomOut()
-        current_size = self.editor.font().pointSize()
+        editor = self.current_editor()
+        if not editor: return
+        editor.zoomOut()
+        current_size = editor.font().pointSize()
         self.set_editor_font_size(current_size)
 
     def toggle_sidebar_visibility(self):
@@ -495,7 +468,8 @@ class MainWindow(QMainWindow):
         font_family = self.settings.value("editorFontFamily", "Consolas")
         font_size = self.settings.value("editorFontSize", 11, type=int)
         font = QFont(font_family, font_size)
-        self.editor.setFont(font)
+        # The font is now applied to each new tab in create_new_tab
+        # and to existing tabs in set_editor_font/set_editor_font_size
         self.sidebar.font_combo.setCurrentFont(font)
         self.sidebar.font_size_spinbox.setValue(font_size)
 
@@ -509,18 +483,24 @@ class MainWindow(QMainWindow):
         self.set_word_wrap(Qt.Checked if word_wrap else Qt.Unchecked)
 
     def set_editor_font(self, font):
-        current_size = self.editor.font().pointSize()
-        self.editor.setFont(QFont(font.family(), current_size))
+        editor = self.current_editor()
+        if not editor: return
+        current_size = editor.font().pointSize()
+        new_font = QFont(font.family(), current_size)
+        # Apply to all other tabs as well
+        for i in range(self.tab_widget.count()):
+            self.tab_widget.widget(i).setFont(new_font)
         self.settings.setValue("editorFontFamily", font.family())
 
     def set_editor_font_size(self, size):
-        # Block signals from spinbox to prevent recursion if this method is called by spinbox valueChanged
+        # Block signals from spinbox to prevent recursion
         self.sidebar.font_size_spinbox.blockSignals(True)
         self.sidebar.font_size_spinbox.setValue(size)
         self.sidebar.font_size_spinbox.blockSignals(False)
 
-        # Set editor font size
-        self.editor.setFontPointSize(size)
+        # Apply to all tabs
+        for i in range(self.tab_widget.count()):
+            self.tab_widget.widget(i).setFontPointSize(size)
         self.settings.setValue("editorFontSize", size)
 
     def change_sidebar_width(self, delta):
@@ -555,41 +535,24 @@ class MainWindow(QMainWindow):
 
     def set_word_wrap(self, state):
         mode = QTextOption.WordWrap if state == Qt.Checked else QTextOption.NoWrap
-        self.editor.setWordWrapMode(mode)
+        # Apply to all tabs
+        for i in range(self.tab_widget.count()):
+            self.tab_widget.widget(i).setWordWrapMode(mode)
         self.settings.setValue("wordWrap", "true" if state == Qt.Checked else "false")
 
-    def save_file(self):
-        if self.current_file_path:
-            try:
-                with open(self.current_file_path, 'w', encoding='utf-8') as f:
-                    f.write(self.editor.toPlainText())
-                self.status_bar.showMessage(f"Saved to {os.path.basename(self.current_file_path)}", 3000)
-            except Exception as e:
-                self.status_bar.showMessage(f"Error saving file: {e}", 5000)
-        else:
-            self.save_file_as()
-
-    def save_file_as(self):
-        options = QFileDialog.Options()
-        file_path, _ = QFileDialog.getSaveFileName(self, "Save File As", "", "Text Files (*.txt);;All Files (*)", options=options)
-        if file_path:
-            # Ensure .txt extension if none is provided
-            if not file_path.endswith('.txt'):
-                file_path += '.txt'
-            
-            self.current_file_path = file_path
-            self.save_file()
-
     def print_file(self):
+        editor = self.current_editor()
+        if not editor: return
         printer = QPrinter(QPrinter.HighResolution)
         # You can add a print dialog here:
         # from PyQt5.QtPrintSupport import QPrintDialog
         # dialog = QPrintDialog(printer, self) ...
-        self.editor.document().print_(printer)
+        editor.document().print_(printer)
 
     def export_to_pdf(self):
         """Exports the current content of the editor to a PDF file."""
-        if not self.editor.toPlainText().strip():
+        editor = self.current_editor()
+        if not editor or not editor.toPlainText().strip():
             self.status_bar.showMessage("Nothing to export. The editor is empty.", 5000)
             return
 
@@ -603,12 +566,14 @@ class MainWindow(QMainWindow):
             printer = QPrinter(QPrinter.HighResolution)
             printer.setOutputFormat(QPrinter.PdfFormat)
             printer.setOutputFileName(file_path)
-            self.editor.document().print_(printer)
+            self.current_editor().document().print_(printer)
             self.status_bar.showMessage(f"Successfully exported to {os.path.basename(file_path)}", 5000)
 
     # --- Placeholder Methods for Menu Actions ---
 
     def find_next(self):
+        editor = self.current_editor()
+        if not editor: return
         query = self.find_input.text()
         if not query:
             return
@@ -617,13 +582,15 @@ class MainWindow(QMainWindow):
         if self.find_case_sensitive_checkbox.isChecked():
             flags |= QTextDocument.FindCaseSensitively
 
-        found = self.editor.find(query, flags)
+        found = editor.find(query, flags)
         if not found:
             # Wrap around to the beginning
-            self.editor.moveCursor(QTextCursor.Start)
-            self.editor.find(query, flags)
+            editor.moveCursor(QTextCursor.Start)
+            editor.find(query, flags)
 
     def find_previous(self):
+        editor = self.current_editor()
+        if not editor: return
         query = self.find_input.text()
         if not query:
             return
@@ -632,11 +599,11 @@ class MainWindow(QMainWindow):
         if self.find_case_sensitive_checkbox.isChecked():
             flags |= QTextDocument.FindCaseSensitively
 
-        found = self.editor.find(query, flags)
+        found = editor.find(query, flags)
         if not found:
             # Wrap around to the end
-            self.editor.moveCursor(QTextCursor.End)
-            self.editor.find(query, flags)
+            editor.moveCursor(QTextCursor.End)
+            editor.find(query, flags)
 
     def replace_text(self):
         self.find_bar.show()
@@ -650,6 +617,23 @@ class MainWindow(QMainWindow):
         if not self.find_bar.isVisible():
             self.find_bar.show()
 
+    def update_window_title(self):
+        editor = self.current_editor()
+        if not editor:
+            self.setWindowTitle("StudyMate")
+            return
+        
+        file_path = editor.file_path
+        title = os.path.basename(file_path) if file_path else "Untitled"
+        if editor.document().isModified():
+            title += "*"
+        
+        self.setWindowTitle(f"{title} - StudyMate")
+
+    def update_status_bar(self):
+        editor = self.current_editor()
+        if editor:
+            self.status_bar.update_editor_info(editor)
 
     def reset_editor_zoom(self):
         # A bit of a workaround as there's no direct 'reset zoom'
@@ -677,12 +661,14 @@ class MainWindow(QMainWindow):
         self.status_bar.showMessage("Show about dialog action triggered (not implemented).", 3000)
 
     def replace_current(self):
+        editor = self.current_editor()
+        if not editor: return
         query = self.find_input.text()
-        if not query or not self.editor.textCursor().hasSelection():
+        if not query or not editor.textCursor().hasSelection():
             return
 
         # Check if the selected text matches the find query
-        cursor = self.editor.textCursor()
+        cursor = editor.textCursor()
         selected_text = cursor.selectedText()
         
         is_case_sensitive = self.find_case_sensitive_checkbox.isChecked()
@@ -697,15 +683,17 @@ class MainWindow(QMainWindow):
         self.find_next()
 
     def replace_all(self):
+        editor = self.current_editor()
+        if not editor: return
         query = self.find_input.text()
         replace_text = self.replace_input.text()
         if not query:
             return
 
-        original_text = self.editor.toPlainText()
+        original_text = editor.toPlainText()
         flags = Qt.CaseInsensitive if not self.find_case_sensitive_checkbox.isChecked() else Qt.CaseSensitive
         new_text = original_text.replace(query, replace_text)
 
         if original_text != new_text:
-            self.editor.setPlainText(new_text)
+            editor.setPlainText(new_text)
             self.status_bar.showMessage(f"Replaced all occurrences of '{query}'.", 3000)

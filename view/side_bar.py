@@ -110,18 +110,6 @@ class SideBar(QDockWidget):
         self.explore_stack.addWidget(welcome_widget)
         self.explore_stack.addWidget(self.explore_view_widget)
 
-        # --- Connect Signals ---
-        self.open_folder_button.clicked.connect(self.open_folder_in_explorer)
-        # Connect to MainWindow methods
-        self.open_file_button.clicked.connect(self.parent().open_file)
-        self.new_file_button.clicked.connect(self.parent().new_file)
-
-        # Connect toolbar actions
-        self.new_file_action.triggered.connect(self.parent().new_file)
-        self.new_folder_action.triggered.connect(self.create_new_folder)
-        self.refresh_action.triggered.connect(self.refresh_explorer)
-        self.collapse_action.triggered.connect(self.explore_view.collapseAll)
-
     def open_folder_in_explorer(self):
         """Opens a directory dialog and sets the file explorer root."""
         folder_path = QFileDialog.getExistingDirectory(self, "Open Folder", QDir.homePath())
