@@ -1,7 +1,9 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLineEdit, QPushButton, QListWidget, QListWidgetItem, QHBoxLayout, QMessageBox
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QStandardPaths
 from view.task_widget import TaskWidget
 import uuid
+import os
+import json
 
 class SchedulerTab(QWidget):
     """
@@ -12,7 +14,9 @@ class SchedulerTab(QWidget):
         super().__init__(parent)
         self.tasks = [] # This will hold our task data
         self.init_ui()
-        self.load_sample_tasks()
+        loaded = self.load_tasks()
+        if not loaded:
+            self.load_sample_tasks()
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)
@@ -49,14 +53,10 @@ class SchedulerTab(QWidget):
             "priority": "medium", # Default priority
         }
         self.tasks.append(new_task_data)
-
-        task_item_widget = TaskWidget(new_task_data)
-        list_item = QListWidgetItem(self.task_list_widget)
-        list_item.setSizeHint(task_item_widget.sizeHint())
-        self.task_list_widget.addItem(list_item)
-        self.task_list_widget.setItemWidget(list_item, task_item_widget)
+        self.add_task_widget(new_task_data)
 
         self.task_input.clear()
+        self.save_tasks()
 
     def load_sample_tasks(self):
         """A helper to show some initial data."""
@@ -80,3 +80,64 @@ class SchedulerTab(QWidget):
 
         self.tasks.clear()
         self.task_list_widget.clear()
+        self.save_tasks()
+
+    # ---------------- Persistence ----------------
+    def _tasks_file_path(self):
+        base_dir = QStandardPaths.writableLocation(QStandardPaths.AppDataLocation)
+        # Fallback to home if path is empty
+        if not base_dir:
+            base_dir = os.path.join(os.path.expanduser("~"), ".studymate")
+        # Ensure app subdir exists
+        app_dir = os.path.join(base_dir, "StudyMate") if "StudyMate" not in base_dir else base_dir
+        os.makedirs(app_dir, exist_ok=True)
+        return os.path.join(app_dir, "scheduler_tasks.json")
+
+    def save_tasks(self):
+        try:
+            path = self._tasks_file_path()
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(self.tasks, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            QMessageBox.warning(self, "Save Error", f"Failed to save tasks: {e}")
+
+    def load_tasks(self):
+        try:
+            path = self._tasks_file_path()
+            if not os.path.exists(path):
+                return False
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if not isinstance(data, list):
+                return False
+            # Normalize and populate
+            self.tasks = []
+            self.task_list_widget.clear()
+            for item in data:
+                task = {
+                    "id": item.get("id", str(uuid.uuid4())),
+                    "title": item.get("title", "Untitled Task"),
+                    "status": item.get("status", "pending"),
+                    "priority": item.get("priority", "medium"),
+                }
+                self.tasks.append(task)
+                self.add_task_widget(task)
+            return True
+        except Exception as e:
+            QMessageBox.warning(self, "Load Error", f"Failed to load tasks: {e}")
+            return False
+
+    def add_task_widget(self, task_data):
+        task_item_widget = TaskWidget(task_data)
+        task_item_widget.status_changed.connect(self.on_task_status_changed)
+        list_item = QListWidgetItem(self.task_list_widget)
+        list_item.setSizeHint(task_item_widget.sizeHint())
+        self.task_list_widget.addItem(list_item)
+        self.task_list_widget.setItemWidget(list_item, task_item_widget)
+
+    def on_task_status_changed(self, task_id, new_status):
+        for task in self.tasks:
+            if task.get("id") == task_id:
+                task["status"] = new_status
+                break
+        self.save_tasks()

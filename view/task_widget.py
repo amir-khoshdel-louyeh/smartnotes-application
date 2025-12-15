@@ -1,11 +1,12 @@
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QCheckBox, QLabel, QFrame
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 
 class TaskWidget(QWidget):
     """
     A widget representing a single task in the daily planner.
     It includes a priority indicator, a checkbox, and the task title.
     """
+    status_changed = pyqtSignal(str, str)  # (task_id, new_status)
     def __init__(self, task_data, parent=None):
         super().__init__(parent)
         self.task_data = task_data
@@ -46,6 +47,9 @@ class TaskWidget(QWidget):
     def on_status_changed(self, state):
         self.task_data["status"] = "done" if state == Qt.Checked else "pending"
         self.update_style()
+        # Emit change so parent can persist tasks
+        task_id = self.task_data.get("id", "")
+        self.status_changed.emit(task_id, self.task_data["status"])
 
     def update_style(self):
         if self.task_data["status"] == "done":
