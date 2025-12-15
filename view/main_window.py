@@ -1,6 +1,7 @@
 from PyQt5.QtWidgets import QMainWindow, QFileDialog, QApplication, QAction, QTextEdit, QWidget, QHBoxLayout, QLineEdit, QPushButton, QCheckBox, QVBoxLayout, QTabWidget, QLabel, QMessageBox
 from PyQt5.QtCore import Qt, QSettings, QThreadPool
 from PyQt5.QtGui import QFont, QTextOption, QDesktopServices, QTextDocument, QTextCursor, QKeySequence
+import re
 from PyQt5.QtPrintSupport import QPrinter
 from PyQt5.QtCore import QUrl
 from view.menu_bar import MenuBar
@@ -700,8 +701,9 @@ class MainWindow(QMainWindow):
             return
 
         original_text = editor.toPlainText()
-        flags = Qt.CaseInsensitive if not self.find_case_sensitive_checkbox.isChecked() else Qt.CaseSensitive
-        new_text = original_text.replace(query, replace_text)
+        pattern = re.escape(query)
+        flags = re.IGNORECASE if not self.find_case_sensitive_checkbox.isChecked() else 0
+        new_text = re.sub(pattern, replace_text, original_text, flags=flags)
 
         if original_text != new_text:
             editor.setPlainText(new_text)
