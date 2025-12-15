@@ -1,5 +1,5 @@
 import fitz  # PyMuPDF
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel, QHBoxLayout, QScrollArea, QSizePolicy, QSpinBox
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel, QHBoxLayout, QScrollArea, QSpinBox
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import Qt
 

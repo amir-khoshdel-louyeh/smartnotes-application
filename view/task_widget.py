@@ -1,6 +1,5 @@
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QCheckBox, QLabel, QFrame
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPainter, QColor
 
 class TaskWidget(QWidget):
     """

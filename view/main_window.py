@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QMainWindow, QFileDialog, QApplication, QAction, QTextEdit, QWidget, QHBoxLayout, QLineEdit, QPushButton, QCheckBox, QVBoxLayout, QTabWidget, QLabel, QMessageBox
-from PyQt5.QtCore import Qt, QSettings, QThreadPool, QTimer
-from PyQt5.QtGui import QFont, QTextOption, QDesktopServices, QTextDocument, QTextCursor, QKeySequence, QIcon
+from PyQt5.QtCore import Qt, QSettings, QThreadPool
+from PyQt5.QtGui import QFont, QTextOption, QDesktopServices, QTextDocument, QTextCursor, QKeySequence
 from PyQt5.QtPrintSupport import QPrinter
 from PyQt5.QtCore import QUrl
 from view.menu_bar import MenuBar

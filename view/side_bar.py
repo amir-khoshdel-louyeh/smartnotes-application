@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QDockWidget, QTabWidget, QWidget, QVBoxLayout, QLabel, QStyle, QPushButton, QComboBox, QTextEdit, QFormLayout, QPlainTextEdit, QFontComboBox, QSpinBox, QCheckBox, QGroupBox, QHBoxLayout, QLineEdit, QTreeView, QFileSystemModel, QSizePolicy, QStackedWidget, QFileDialog, QToolBar, QAction
+from PyQt5.QtWidgets import QDockWidget, QTabWidget, QWidget, QVBoxLayout, QLabel, QStyle, QPushButton, QComboBox, QTextEdit, QFormLayout, QFontComboBox, QSpinBox, QCheckBox, QGroupBox, QHBoxLayout, QLineEdit, QTreeView, QFileSystemModel, QSizePolicy, QStackedWidget, QFileDialog, QToolBar, QAction
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, QDir, pyqtSignal
 from view.scheduler_tab import SchedulerTab

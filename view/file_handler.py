@@ -7,7 +7,6 @@ from odf import text, teletype
 from odf.opendocument import load as load_odt
 import pypdf
 from PyQt5.QtWidgets import QFileDialog, QMessageBox, QTabWidget
-from PyQt5.QtPrintSupport import QPrinter
 from view.pdf_viewer import PdfViewer
 from view.editor_area import EditorArea
 from PyQt5.QtGui import QFont, QTextOption

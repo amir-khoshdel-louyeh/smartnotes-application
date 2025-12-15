@@ -1,6 +1,5 @@
 from transformers import pipeline, Pipeline
 from PyQt5.QtCore import QObject, pyqtSignal, QRunnable
-import requests
 
 
 class KeyPointsService(QObject):
