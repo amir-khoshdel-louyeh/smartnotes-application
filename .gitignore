@@ -27,3 +27,13 @@ Build
 dist/
 build/
 *.egg-info/
+
+# Python cache and test artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.mypy_cache/
+.pytest_cache/
+.coverage
+help.txt
