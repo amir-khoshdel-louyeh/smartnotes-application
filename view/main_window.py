@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QMainWindow, QFileDialog, QApplication, QAction, QTextEdit, QWidget, QHBoxLayout, QLineEdit, QPushButton, QCheckBox, QVBoxLayout, QTabWidget, QLabel, QMessageBox
-from PyQt5.QtCore import Qt, QSettings, QThreadPool
+from PyQt5.QtCore import Qt, QThreadPool
 from PyQt5.QtGui import QFont, QTextOption, QDesktopServices, QTextDocument, QTextCursor, QKeySequence
 import re
 from PyQt5.QtPrintSupport import QPrinter
@@ -8,6 +8,7 @@ from view.menu_bar import MenuBar
 from view.side_bar import SideBar
 from view.editor_area import EditorArea
 from view.file_handler import FileHandler
+from view.settings_manager import SettingsManager
 from view.status_bar import StatusBar
 from services.summarizer import SummarizationWorker, PreloadWorker
 from services.key_points_extractor import KeyPointsWorker
@@ -15,7 +16,6 @@ import os
 
 class MainWindow(QMainWindow):
     def __init__(self):
-        self.settings = QSettings("StudyMate", "StudyMate") # OrganizationName, ApplicationName
         super().__init__()
         self.setWindowTitle("StudyMate")
         self.setGeometry(100, 100, 1400, 900)
@@ -90,6 +90,7 @@ class MainWindow(QMainWindow):
         self.tab_widget.tabCloseRequested.connect(self.file_handler.close_tab)
 
         # Load settings
+        self.settings = SettingsManager()
         self.load_settings()
 
         # Connect find bar signals
@@ -455,22 +456,22 @@ class MainWindow(QMainWindow):
             min-width: 20px;
         }
         """)
-        self.settings.setValue("theme", "dark")
+        self.settings.set_theme("dark")
 
     def set_light_theme(self):
         QApplication.instance().setStyleSheet("")  # Reset to default os style
-        self.settings.setValue("theme", "light")
+        self.settings.set_theme("light")
         QApplication.instance().setProperty("theme", "light")
         self.sidebar.setStyleSheet("") # Reset sidebar font
 
     def load_settings(self):
         # Load and apply theme
-        theme = self.settings.value("theme", "light")
+        theme = self.settings.get_theme()
         self.set_theme(theme)
 
         # Load and apply font settings
-        font_family = self.settings.value("editorFontFamily", "Consolas")
-        font_size = self.settings.value("editorFontSize", 11, type=int)
+        font_family = self.settings.get_editor_font_family()
+        font_size = self.settings.get_editor_font_size()
         font = QFont(font_family, font_size)
         # The font is now applied to each new tab in create_new_tab
         # and to existing tabs in set_editor_font/set_editor_font_size
@@ -478,11 +479,11 @@ class MainWindow(QMainWindow):
         self.sidebar.font_size_spinbox.setValue(font_size)
 
         # Load and apply sidebar settings
-        self.set_sidebar_width(self.settings.value("sidebarWidth", 300, type=int))
-        self.set_sidebar_font_size(self.settings.value("sidebarFontSize", 10, type=int))
+        self.set_sidebar_width(self.settings.get_sidebar_width())
+        self.set_sidebar_font_size(self.settings.get_sidebar_font_size())
 
         # Load and apply word wrap
-        word_wrap = self.settings.value("wordWrap", "true", type=str) == "true"
+        word_wrap = self.settings.get_word_wrap()
         self.sidebar.word_wrap_checkbox.setChecked(word_wrap)
         self.set_word_wrap(Qt.Checked if word_wrap else Qt.Unchecked)
 
@@ -494,7 +495,7 @@ class MainWindow(QMainWindow):
         # Apply to all other tabs as well
         for i in range(self.tab_widget.count()):
             self.tab_widget.widget(i).setFont(new_font)
-        self.settings.setValue("editorFontFamily", font.family())
+        self.settings.set_editor_font_family(font.family())
 
     def set_editor_font_size(self, size):
         # Block signals from spinbox to prevent recursion
@@ -505,7 +506,7 @@ class MainWindow(QMainWindow):
         # Apply to all tabs
         for i in range(self.tab_widget.count()):
             self.tab_widget.widget(i).setFontPointSize(size)
-        self.settings.setValue("editorFontSize", size)
+        self.settings.set_editor_font_size(size)
 
     def change_sidebar_width(self, delta):
         current_width = int(self.sidebar.sidebar_width_label.text())
@@ -514,7 +515,7 @@ class MainWindow(QMainWindow):
 
     def set_sidebar_width(self, width):
         self.sidebar_width = width
-        self.settings.setValue("sidebarWidth", width)
+        self.settings.set_sidebar_width(width)
         self.sidebar.sidebar_width_label.setText(str(width))
 
         # Use resizeDocks to programmatically resize without locking it.
@@ -534,7 +535,7 @@ class MainWindow(QMainWindow):
 
     def set_sidebar_font_size(self, size):
         self.sidebar.widget().setStyleSheet(f"font-size: {size}pt;")
-        self.settings.setValue("sidebarFontSize", size)
+        self.settings.set_sidebar_font_size(size)
         self.sidebar.sidebar_font_size_label.setText(str(size))
 
     def set_word_wrap(self, state):
@@ -542,7 +543,7 @@ class MainWindow(QMainWindow):
         # Apply to all tabs
         for i in range(self.tab_widget.count()):
             self.tab_widget.widget(i).setWordWrapMode(mode)
-        self.settings.setValue("wordWrap", "true" if state == Qt.Checked else "false")
+        self.settings.set_word_wrap(state == Qt.Checked)
 
     def print_file(self):
         editor = self.current_editor()
@@ -647,7 +648,7 @@ class MainWindow(QMainWindow):
 
     def reset_editor_zoom(self):
         # A bit of a workaround as there's no direct 'reset zoom'
-        self.set_editor_font_size(self.settings.value("editorFontSize", 11, type=int))
+        self.set_editor_font_size(self.settings.get_editor_font_size())
 
     def toggle_fullscreen(self, checked):
         if checked:
