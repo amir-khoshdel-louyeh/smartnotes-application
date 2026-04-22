@@ -1,25 +1,22 @@
 import os
-import docx
-import subprocess
-import tempfile
 import shutil
-from odf import text, teletype
-from odf.opendocument import load as load_odt
-import pypdf
 from PyQt5.QtWidgets import QFileDialog, QMessageBox, QTabWidget
 from view.pdf_viewer import PdfViewer
 from view.editor_area import EditorArea
+from view.file_service import FileService
+from view.document_model import DocumentModel
 from PyQt5.QtGui import QFont, QTextOption
 from PyQt5.QtCore import QUrl
 from PyQt5.QtGui import QDesktopServices
 
 class FileHandler:
-    def __init__(self, main_window):
+    def __init__(self, main_window, file_service: FileService | None = None):
         self.main_window = main_window
         self.tab_widget: QTabWidget = main_window.tab_widget
         self.status_bar = main_window.status_bar
         self.sidebar = main_window.sidebar
         self.settings = main_window.settings
+        self.file_service = file_service or FileService()
 
     def new_file(self, is_initial_tab=False):
         """Prompts the user to create a new file, asking for name and location."""
@@ -48,7 +45,7 @@ class FileHandler:
         """Creates a new tab with an EditorArea."""
         editor = EditorArea(file_path=file_path)
         editor.setText(content)
-        
+
         font_family = self.settings.value("editorFontFamily", "Consolas")
         font_size = self.settings.value("editorFontSize", 11, type=int)
         editor.setFont(QFont(font_family, font_size))
@@ -58,7 +55,9 @@ class FileHandler:
         editor.document().modificationChanged.connect(lambda modified, ed=editor: self.main_window.on_modification_changed(ed, modified))
         editor.cursorPositionChanged.connect(self.main_window.update_status_bar)
 
-        tab_name = os.path.basename(file_path) if file_path else "Untitled"
+        editor.document_model = DocumentModel(file_path=file_path)
+
+        tab_name = os.path.basename(file_path) if file_path else editor.document_model.display_name
         index = self.tab_widget.addTab(editor, tab_name)
         self.tab_widget.setTabToolTip(index, file_path or "New unsaved file")
         self.tab_widget.setCurrentIndex(index)
@@ -85,28 +84,6 @@ class FileHandler:
                 self.tab_widget.setCurrentIndex(i)
                 return True
         return False
-
-    def _read_txt(self, file_path):
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return f.read()
-
-    def _read_docx(self, file_path):
-        doc = docx.Document(file_path)
-        return "\n".join([para.text for para in doc.paragraphs])
-
-    def _read_pdf(self, file_path):
-        content = ""
-        with open(file_path, 'rb') as f:
-            reader = pypdf.PdfReader(f)
-            for page in reader.pages:
-                content += page.extract_text() + "\n"
-        return content
-
-    def _read_odt(self, file_path):
-        doc = load_odt(file_path)
-        all_paras = doc.getElementsByType(text.P)
-        content = "\n".join(teletype.extractText(p) for p in all_paras)
-        return content
 
     def load_file(self, file_path):
         try:
@@ -148,8 +125,7 @@ class FileHandler:
                 clicked_button = msg_box.clickedButton()
 
                 if clicked_button == open_in_app_button: # Open as PDF
-                    # Convert ODT to PDF and open in viewer
-                    pdf_path = self._convert_odt_to_pdf(file_path)
+                    pdf_path = self.file_service.convert_odt_to_pdf(file_path)
                     if pdf_path:
                         self.create_new_pdf_tab(pdf_path, is_temporary=True)
                 elif clicked_button == open_externally_button: # Open with LibreOffice etc.
@@ -158,14 +134,13 @@ class FileHandler:
                     return
                 return # ODT handling is complete
 
-            _, extension = os.path.splitext(file_path)
-            readers = {
-                '.txt': self._read_txt, '.md': self._read_txt, '.markdown': self._read_txt, '.py': self._read_txt,
-                '.docx': self._read_docx, 
-                '.odt': self._read_odt,
-            }
-            reader_func = readers.get(extension.lower(), self._read_txt)
-            content = reader_func(file_path) # This will now only be called for .txt, .docx etc.
+            extension = os.path.splitext(file_path)[1].lower()
+            if extension in ['.txt', '.md', '.markdown', '.py']:
+                content = self.file_service.read_text_file(file_path)
+            elif extension == '.docx':
+                content = self.file_service.read_docx(file_path)
+            else:
+                content = self.file_service.read_text_file(file_path)
 
             self.create_new_tab(file_path, content)
             self.status_bar.showMessage(f"Successfully loaded {os.path.basename(file_path)}", 5000)
@@ -174,36 +149,12 @@ class FileHandler:
             self.status_bar.showMessage(f"Error loading file", 5000)
             print(f"Error loading file: {e}")
 
-    def _convert_odt_to_pdf(self, odt_path):
-        """Converts an ODT file to PDF using LibreOffice and returns the new PDF path."""
-        self.status_bar.showMessage("Converting ODT to PDF...", 5000)
-        try:
-            temp_dir = tempfile.mkdtemp()
-            subprocess.run(
-                ['libreoffice', '--headless', '--convert-to', 'pdf', '--outdir', temp_dir, odt_path],
-                check=True,
-                capture_output=True,
-                text=True
-            )
-            base_name = os.path.splitext(os.path.basename(odt_path))[0]
-            pdf_path = os.path.join(temp_dir, f"{base_name}.pdf")
-            if os.path.exists(pdf_path):
-                self.status_bar.showMessage("Conversion successful.", 3000)
-                return pdf_path
-            else:
-                raise FileNotFoundError("Converted PDF not found.")
-        except (subprocess.CalledProcessError, FileNotFoundError) as e:
-            error_details = e.stderr if isinstance(e, subprocess.CalledProcessError) else str(e)
-            error_message = f"Failed to convert ODT to PDF. Please ensure LibreOffice is installed and in your system's PATH.\n\nError details:\n{error_details}"
-            QMessageBox.critical(self.main_window, "Conversion Error", error_message)
-            return None
-        except Exception as e:
-            QMessageBox.critical(self.main_window, "Conversion Error", f"An unexpected error occurred during conversion: {e}")
 
     def create_new_pdf_tab(self, file_path, is_temporary=False):
         """Creates a new tab with a PdfViewer."""
         viewer = PdfViewer(file_path=file_path)
         viewer.is_temporary_file = is_temporary
+        viewer.document_model = DocumentModel(file_path=file_path, is_temporary=is_temporary, is_pdf=True)
         tab_name = os.path.basename(file_path)
         index = self.tab_widget.addTab(viewer, tab_name)
         self.tab_widget.setTabToolTip(index, file_path)
@@ -261,8 +212,7 @@ class FileHandler:
 
         if editor.file_path:
             try:
-                with open(editor.file_path, 'w', encoding='utf-8') as f:
-                    f.write(editor.toPlainText())
+                self.file_service.save_text_file(editor.file_path, editor.toPlainText())
                 editor.document().setModified(False)
                 if index == self.tab_widget.currentIndex():
                     self.status_bar.showMessage(f"Saved to {os.path.basename(editor.file_path)}", 3000)
@@ -283,6 +233,8 @@ class FileHandler:
         
         if file_path:
             editor.file_path = file_path
+            if hasattr(editor, 'document_model'):
+                editor.document_model.update_path(file_path)
             self.tab_widget.setTabText(index, os.path.basename(file_path))
             self.tab_widget.setTabToolTip(index, file_path)
             self.main_window.update_window_title()
