@@ -7,9 +7,9 @@ from PyQt5.QtCore import QUrl
 from view.menu_bar import MenuBar
 from view.side_bar import SideBar
 from view.editor_area import EditorArea
-from view.file_handler import FileHandler
 from view.settings_manager import SettingsManager
 from view.status_bar import StatusBar
+from view.ui_controller import UIController
 from services.summarizer import SummarizationWorker, PreloadWorker
 from services.key_points_extractor import KeyPointsWorker
 import os
@@ -83,15 +83,16 @@ class MainWindow(QMainWindow):
         self.status_bar = StatusBar()
         self.setStatusBar(self.status_bar)
 
-        # Handlers (must be initialized after the widgets they handle)
-        self.file_handler = FileHandler(self)
-        
-        # Connect signals that depend on handlers
-        self.tab_widget.tabCloseRequested.connect(self.file_handler.close_tab)
-
         # Load settings
         self.settings = SettingsManager()
         self.load_settings()
+
+        # Controller and handlers (must be initialized after widgets and settings)
+        self.ui_controller = UIController(self)
+        self.file_handler = self.ui_controller.file_handler
+
+        # Connect signals that depend on handlers
+        self.tab_widget.tabCloseRequested.connect(self.file_handler.close_tab)
 
         # Connect find bar signals
         # Note: self.editor is now self.current_editor()
