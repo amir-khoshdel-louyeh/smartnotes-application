@@ -29,6 +29,7 @@ class SettingsModel:
         manager.set_sidebar_width(self.sidebar_width)
         manager.set_sidebar_font_size(self.sidebar_font_size)
         manager.set_word_wrap(self.word_wrap)
+        manager.sync()
 
     def update_theme(self, theme_name: str) -> None:
         self.theme = theme_name

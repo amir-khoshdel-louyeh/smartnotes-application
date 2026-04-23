@@ -83,9 +83,9 @@ class MainWindow(QMainWindow):
         self.status_bar = StatusBar()
         self.setStatusBar(self.status_bar)
 
-        # Load settings
+        # Load settings through the manager/model layer
         self.settings_manager = SettingsManager()
-        self.settings_model = SettingsModel.load(self.settings_manager)
+        self.settings_model = self.settings_manager.load_settings()
         self.load_settings()
 
         # Controller and handlers (must be initialized after widgets and settings)

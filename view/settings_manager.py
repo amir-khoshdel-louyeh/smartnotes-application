@@ -16,6 +16,16 @@ class SettingsManager:
     def sync(self):
         self._settings.sync()
 
+    def load_settings(self):
+        """Load the current saved settings into a SettingsModel."""
+        from view.settings_model import SettingsModel
+        return SettingsModel.load(self)
+
+    def save_settings(self, settings_model):
+        """Save a SettingsModel to persistent storage."""
+        settings_model.save(self)
+        self.sync()
+
     # Theme settings
     def get_theme(self):
         return self.value("theme", "light")
@@ -51,7 +61,10 @@ class SettingsManager:
 
     # Word wrap settings
     def get_word_wrap(self):
-        return self.value("wordWrap", "true", type=str) == "true"
+        value = self.value("wordWrap", True, type=bool)
+        if isinstance(value, str):
+            return value.lower() in ("true", "1", "yes")
+        return bool(value)
 
     def set_word_wrap(self, enabled: bool):
-        self.setValue("wordWrap", "true" if enabled else "false")
+        self.setValue("wordWrap", enabled)
