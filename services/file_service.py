@@ -2,11 +2,6 @@ import os
 import subprocess
 import tempfile
 
-import docx
-import pypdf
-from odf import text, teletype
-from odf.opendocument import load as load_odt
-
 
 class FileService:
     """Encapsulates file I/O and conversion logic for the app."""
@@ -32,15 +27,21 @@ class FileService:
             return f.read()
 
     def read_docx(self, file_path: str) -> str:
+        import docx
         doc = docx.Document(file_path)
         return "\n".join(para.text for para in doc.paragraphs)
 
     def read_odt(self, file_path: str) -> str:
+        from odf import text, teletype
+        from odf.opendocument import load as load_odt
+
         document = load_odt(file_path)
         all_paras = document.getElementsByType(text.P)
         return "\n".join(teletype.extractText(p) for p in all_paras)
 
     def read_pdf(self, file_path: str) -> str:
+        import pypdf
+
         content = []
         with open(file_path, 'rb') as f:
             reader = pypdf.PdfReader(f)

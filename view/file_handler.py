@@ -3,7 +3,7 @@ import shutil
 from PyQt5.QtWidgets import QFileDialog, QMessageBox, QTabWidget
 from view.pdf_viewer import PdfViewer
 from view.editor_area import EditorArea
-from view.file_service import FileService
+from services.file_service import FileService
 from view.document_model import DocumentModel
 from PyQt5.QtGui import QFont, QTextOption
 from PyQt5.QtCore import QUrl
