@@ -10,8 +10,7 @@ from view.editor_area import EditorArea
 from view.settings_manager import SettingsManager
 from view.status_bar import StatusBar
 from view.ui_controller import UIController
-from services.summarizer import SummarizationWorker, PreloadWorker
-from services.key_points_extractor import KeyPointsWorker
+from view.ai_workers import SummarizationWorker, KeyPointsWorker, PreloadWorker
 import os
 
 class MainWindow(QMainWindow):
