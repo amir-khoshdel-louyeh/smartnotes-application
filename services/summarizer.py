@@ -1,18 +1,25 @@
-from transformers import pipeline, Pipeline
 
+try:
+    from transformers import pipeline
+except ImportError:
+    pipeline = None
 
 class SummarizerService:
     """
     A service to handle text summarization using a pre-trained model.
     Loads the model lazily on the first summarization request.
     """
-    _summarizer: Pipeline = None
+    _summarizer = None
 
     @classmethod
-    def get_summarizer(cls) -> Pipeline:
+    def get_summarizer(cls):
         """Lazily loads and returns the summarization pipeline."""
         if cls._summarizer is None:
-            cls._summarizer = pipeline("summarization", model="sshleifer/distilbart-cnn-6-6")
+            if pipeline is None:
+                from transformers import pipeline as _pipeline
+            else:
+                _pipeline = pipeline
+            cls._summarizer = _pipeline("summarization", model="sshleifer/distilbart-cnn-6-6")
         return cls._summarizer
 
     @classmethod

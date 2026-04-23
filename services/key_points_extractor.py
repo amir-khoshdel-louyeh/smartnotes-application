@@ -1,18 +1,25 @@
-from transformers import pipeline, Pipeline
 
+try:
+    from transformers import pipeline
+except ImportError:
+    pipeline = None
 
 class KeyPointsService:
     """
     A service to handle key points extraction using a pre-trained model.
     Loads the model lazily on the first request.
     """
-    _extractor: Pipeline = None
+    _extractor = None
 
     @classmethod
-    def get_extractor(cls) -> Pipeline:
+    def get_extractor(cls):
         """Lazily loads and returns the token classification pipeline for keyword extraction."""
         if cls._extractor is None:
-            cls._extractor = pipeline("token-classification", model="ml6team/keyphrase-extraction-kbir-inspec")
+            if pipeline is None:
+                from transformers import pipeline as _pipeline
+            else:
+                _pipeline = pipeline
+            cls._extractor = _pipeline("token-classification", model="ml6team/keyphrase-extraction-kbir-inspec")
         return cls._extractor
 
     @classmethod
