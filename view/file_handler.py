@@ -15,7 +15,7 @@ class FileHandler:
         self.tab_widget: QTabWidget = main_window.tab_widget
         self.status_bar = main_window.status_bar
         self.sidebar = main_window.sidebar
-        self.settings = main_window.settings
+        self.settings_model = main_window.settings_model
         self.file_service = file_service or FileService()
 
     def new_file(self, is_initial_tab=False):
@@ -46,10 +46,10 @@ class FileHandler:
         editor = EditorArea(file_path=file_path)
         editor.setText(content)
 
-        font_family = self.settings.value("editorFontFamily", "Consolas")
-        font_size = self.settings.value("editorFontSize", 11, type=int)
+        font_family = self.settings_model.editor_font_family
+        font_size = self.settings_model.editor_font_size
         editor.setFont(QFont(font_family, font_size))
-        word_wrap = self.settings.value("wordWrap", "true", type=str) == "true"
+        word_wrap = self.settings_model.word_wrap
         editor.setWordWrapMode(QTextOption.WordWrap if word_wrap else QTextOption.NoWrap)
 
         editor.document().modificationChanged.connect(lambda modified, ed=editor: self.main_window.on_modification_changed(ed, modified))
