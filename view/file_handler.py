@@ -87,18 +87,17 @@ class FileHandler:
 
     def load_file(self, file_path):
         try:
-            # For PDF files, ask the user how they want to open it.
             if file_path.lower().endswith('.pdf'):
                 msg_box = QMessageBox(self.main_window)
                 msg_box.setIcon(QMessageBox.Question)
-                msg_box.setText(f"How would you like to open this PDF?")
+                msg_box.setText("How would you like to open this PDF?")
                 msg_box.setInformativeText(os.path.basename(file_path))
                 msg_box.setWindowTitle("Open PDF")
-                
+
                 open_in_app_button = msg_box.addButton("Open in App", QMessageBox.AcceptRole)
                 open_externally_button = msg_box.addButton("Use Default PDF Reader", QMessageBox.ApplyRole)
                 msg_box.addButton(QMessageBox.Cancel)
-                
+
                 msg_box.exec_()
                 clicked_button = msg_box.clickedButton()
 
@@ -108,46 +107,42 @@ class FileHandler:
                 elif clicked_button == open_externally_button:
                     QDesktopServices.openUrl(QUrl.fromLocalFile(file_path))
                 return
-            
-            # For ODT files, also ask the user how to open it.
+
             if file_path.lower().endswith('.odt'):
                 msg_box = QMessageBox(self.main_window)
                 msg_box.setIcon(QMessageBox.Question)
                 msg_box.setText("How would you like to open this ODT file?")
                 msg_box.setInformativeText("Opening in the app will convert it to a PDF for viewing.")
                 msg_box.setWindowTitle("Open ODT")
-                
+
                 open_in_app_button = msg_box.addButton("Open in App", QMessageBox.AcceptRole)
                 open_externally_button = msg_box.addButton("Use Default App", QMessageBox.ApplyRole)
                 msg_box.addButton(QMessageBox.Cancel)
-                
+
                 msg_box.exec_()
                 clicked_button = msg_box.clickedButton()
 
-                if clicked_button == open_in_app_button: # Open as PDF
+                if clicked_button == open_in_app_button:
                     pdf_path = self.file_service.convert_odt_to_pdf(file_path)
                     if pdf_path:
                         self.create_new_pdf_tab(pdf_path, is_temporary=True)
-                elif clicked_button == open_externally_button: # Open with LibreOffice etc.
+                        self.status_bar.showMessage(f"Successfully converted {os.path.basename(file_path)} to PDF.", 5000)
+                    else:
+                        QMessageBox.critical(self.main_window, "Conversion Error", "Could not convert ODT to PDF. Ensure LibreOffice is installed and try again.")
+                elif clicked_button == open_externally_button:
                     QDesktopServices.openUrl(QUrl.fromLocalFile(file_path))
-                else: # User cancelled
-                    return
-                return # ODT handling is complete
+                return
 
-            extension = os.path.splitext(file_path)[1].lower()
-            if extension in ['.txt', '.md', '.markdown', '.py']:
-                content = self.file_service.read_text_file(file_path)
-            elif extension == '.docx':
-                content = self.file_service.read_docx(file_path)
-            else:
-                content = self.file_service.read_text_file(file_path)
-
+            content = self.file_service.read_file(file_path)
             self.create_new_tab(file_path, content)
             self.status_bar.showMessage(f"Successfully loaded {os.path.basename(file_path)}", 5000)
             self.sidebar.show_directory_in_explorer(file_path)
+        except FileNotFoundError as e:
+            QMessageBox.critical(self.main_window, "File not found", str(e))
+            self.status_bar.showMessage("Selected file was not found.", 5000)
         except Exception as e:
-            self.status_bar.showMessage(f"Error loading file", 5000)
-            print(f"Error loading file: {e}")
+            QMessageBox.critical(self.main_window, "File load error", f"Failed to load {os.path.basename(file_path)}:\n{e}")
+            self.status_bar.showMessage("Failed to load file.", 5000)
 
 
     def create_new_pdf_tab(self, file_path, is_temporary=False):
