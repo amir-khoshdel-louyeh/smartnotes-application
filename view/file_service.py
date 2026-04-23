@@ -11,6 +11,22 @@ from odf.opendocument import load as load_odt
 class FileService:
     """Encapsulates file I/O and conversion logic for the app."""
 
+    def _reader_registry(self) -> dict[str, callable]:
+        return {
+            '.txt': self.read_text_file,
+            '.md': self.read_text_file,
+            '.markdown': self.read_text_file,
+            '.py': self.read_text_file,
+            '.docx': self.read_docx,
+            '.odt': self.read_odt,
+            '.pdf': self.read_pdf,
+        }
+
+    def read_file(self, file_path: str) -> str:
+        extension = os.path.splitext(file_path)[1].lower()
+        reader = self._reader_registry().get(extension, self.read_text_file)
+        return reader(file_path)
+
     def read_text_file(self, file_path: str) -> str:
         with open(file_path, 'r', encoding='utf-8') as f:
             return f.read()
@@ -49,7 +65,7 @@ class FileService:
         return pdf_path if os.path.exists(pdf_path) else None
 
     def supported_text_extensions(self) -> list[str]:
-        return ['.txt', '.md', '.markdown', '.py', '.docx', '.odt']
+        return list(self._reader_registry().keys())
 
     def is_text_extension(self, file_path: str) -> bool:
         return os.path.splitext(file_path)[1].lower() in self.supported_text_extensions()
