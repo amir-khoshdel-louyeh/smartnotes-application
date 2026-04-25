@@ -609,36 +609,43 @@ class MainWindow(QMainWindow):
             return
         query = self.find_input.text()
         if not query:
+            self.status_bar.showMessage("Enter search text before finding.", 3000)
             return
 
         flags = QTextDocument.FindFlags()
         if self.find_case_sensitive_checkbox.isChecked():
-            flags |= QTextDocument.FindCaseSensitively
+            flags |= QTextDocument.FindCaseSensibly
 
         found = editor.find(query, flags)
         if not found:
             # Wrap around to the beginning
             editor.moveCursor(QTextCursor.Start)
-            editor.find(query, flags)
+            found = editor.find(query, flags)
+            if not found:
+                self.status_bar.showMessage(f"No matches found for '{query}'", 3000)
 
     def find_previous(self):
         editor = self.current_editor()
         if not editor:
             self.status_bar.showMessage("Find is only available in text editors.", 3000)
             return
+
         query = self.find_input.text()
         if not query:
+            self.status_bar.showMessage("Enter search text before moving to the previous match.", 3000)
             return
 
         flags = QTextDocument.FindFlags() | QTextDocument.FindBackward
         if self.find_case_sensitive_checkbox.isChecked():
-            flags |= QTextDocument.FindCaseSensitively
+            flags |= QTextDocument.FindCaseSensibly
 
         found = editor.find(query, flags)
         if not found:
             # Wrap around to the end
             editor.moveCursor(QTextCursor.End)
-            editor.find(query, flags)
+            found = editor.find(query, flags)
+            if not found:
+                self.status_bar.showMessage(f"No matches found for '{query}'", 3000)
 
     def replace_text(self):
         self.find_bar.show()
