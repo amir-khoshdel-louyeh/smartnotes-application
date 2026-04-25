@@ -12,6 +12,8 @@ from view.settings_model import SettingsModel
 from view.status_bar import StatusBar
 from view.ui_controller import UIController
 from view.ai_workers import SummarizationWorker, KeyPointsWorker, PreloadWorker
+from services.search_service import SearchService
+from services.lifecycle import LifecycleService
 import os
 
 class MainWindow(QMainWindow):
@@ -128,12 +130,10 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         """Handles the window close event."""
-        # Ask the file handler to close all tabs and honor user cancellation.
-        if not self.file_handler.close_all_files():
+        if not LifecycleService.confirm_shutdown(self.file_handler, self.settings_manager):
             event.ignore()
             return
 
-        self.settings_manager.sync()
         event.accept()
 
     def connect_signals(self):
@@ -604,25 +604,18 @@ class MainWindow(QMainWindow):
     
     def find_next(self):
         editor = self.current_editor()
-        if not editor: 
+        if not editor:
             self.status_bar.showMessage("Find is only available in text editors.", 3000)
             return
+
         query = self.find_input.text()
         if not query:
             self.status_bar.showMessage("Enter search text before finding.", 3000)
             return
 
-        flags = QTextDocument.FindFlags()
-        if self.find_case_sensitive_checkbox.isChecked():
-            flags |= QTextDocument.FindCaseSensibly
-
-        found = editor.find(query, flags)
+        found = SearchService.find_next(editor, query, self.find_case_sensitive_checkbox.isChecked())
         if not found:
-            # Wrap around to the beginning
-            editor.moveCursor(QTextCursor.Start)
-            found = editor.find(query, flags)
-            if not found:
-                self.status_bar.showMessage(f"No matches found for '{query}'", 3000)
+            self.status_bar.showMessage(f"No matches found for '{query}'", 3000)
 
     def find_previous(self):
         editor = self.current_editor()
@@ -635,17 +628,9 @@ class MainWindow(QMainWindow):
             self.status_bar.showMessage("Enter search text before moving to the previous match.", 3000)
             return
 
-        flags = QTextDocument.FindFlags() | QTextDocument.FindBackward
-        if self.find_case_sensitive_checkbox.isChecked():
-            flags |= QTextDocument.FindCaseSensibly
-
-        found = editor.find(query, flags)
+        found = SearchService.find_previous(editor, query, self.find_case_sensitive_checkbox.isChecked())
         if not found:
-            # Wrap around to the end
-            editor.moveCursor(QTextCursor.End)
-            found = editor.find(query, flags)
-            if not found:
-                self.status_bar.showMessage(f"No matches found for '{query}'", 3000)
+            self.status_bar.showMessage(f"No matches found for '{query}'", 3000)
 
     def replace_text(self):
         self.find_bar.show()
@@ -715,21 +700,17 @@ class MainWindow(QMainWindow):
             self.status_bar.showMessage("Enter text to find before replacing.", 3000)
             return
 
-        cursor = editor.textCursor()
-        if not cursor.hasSelection():
-            self.find_next()
-            return
+        replaced = SearchService.replace_current(
+            editor,
+            query,
+            replace_text,
+            self.find_case_sensitive_checkbox.isChecked(),
+        )
 
-        selected_text = cursor.selectedText()
-        is_case_sensitive = self.find_case_sensitive_checkbox.isChecked()
-        query_matches = selected_text == query if is_case_sensitive else selected_text.lower() == query.lower()
-
-        if not query_matches:
-            self.find_next()
-            return
-
-        cursor.insertText(replace_text)
-        self.status_bar.showMessage("Replaced current selection.", 2000)
+        self.status_bar.showMessage(
+            "Replaced current selection." if replaced else "No matching selection to replace.",
+            2000,
+        )
 
     def replace_and_find(self):
         self.replace_current()
@@ -747,14 +728,17 @@ class MainWindow(QMainWindow):
             return
 
         original_text = editor.toPlainText()
-        pattern = re.escape(query)
-        flags = re.IGNORECASE if not self.find_case_sensitive_checkbox.isChecked() else 0
-        new_text = re.sub(pattern, replace_text, original_text, flags=flags)
+        new_text, replacements = SearchService.replace_all(
+            original_text,
+            query,
+            replace_text,
+            self.find_case_sensitive_checkbox.isChecked(),
+        )
 
-        if original_text == new_text:
+        if replacements == 0:
             self.status_bar.showMessage(f"No occurrences of '{query}' found.", 3000)
             return
 
         editor.setPlainText(new_text)
         editor.document().setModified(True)
-        self.status_bar.showMessage(f"Replaced all occurrences of '{query}'.", 3000)
+        self.status_bar.showMessage(f"Replaced {replacements} occurrences of '{query}'.", 3000)
