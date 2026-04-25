@@ -128,17 +128,13 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         """Handles the window close event."""
-        # Use the existing close_all_files logic.
-        # This will prompt to save for each unsaved tab.
-        self.file_handler.close_all_files()
-        
-        # After attempting to close all, check if any tabs remain.
-        # A tab might remain if the user cancels a "Save" dialog.
-        if self.tab_widget.count() > 1 or (self.tab_widget.count() == 1 and self.tab_widget.widget(0).file_path is not None):
-            event.ignore() # User cancelled, so don't close the window.
-        else:
-            self.settings_manager.sync() # All tabs closed, so save settings and exit.
-            event.accept()
+        # Ask the file handler to close all tabs and honor user cancellation.
+        if not self.file_handler.close_all_files():
+            event.ignore()
+            return
+
+        self.settings_manager.sync()
+        event.accept()
 
     def connect_signals(self):
         # File Menu
@@ -703,21 +699,30 @@ class MainWindow(QMainWindow):
 
     def replace_current(self):
         editor = self.current_editor()
-        if not editor: return
-        query = self.find_input.text()
-        if not query or not editor.textCursor().hasSelection():
+        if not editor:
             return
 
-        # Check if the selected text matches the find query
+        query = self.find_input.text()
+        replace_text = self.replace_input.text()
+        if not query:
+            self.status_bar.showMessage("Enter text to find before replacing.", 3000)
+            return
+
         cursor = editor.textCursor()
+        if not cursor.hasSelection():
+            self.find_next()
+            return
+
         selected_text = cursor.selectedText()
-        
         is_case_sensitive = self.find_case_sensitive_checkbox.isChecked()
         query_matches = selected_text == query if is_case_sensitive else selected_text.lower() == query.lower()
 
-        if query_matches:
-            replace_text = self.replace_input.text()
-            cursor.insertText(replace_text)
+        if not query_matches:
+            self.find_next()
+            return
+
+        cursor.insertText(replace_text)
+        self.status_bar.showMessage("Replaced current selection.", 2000)
 
     def replace_and_find(self):
         self.replace_current()
@@ -725,10 +730,13 @@ class MainWindow(QMainWindow):
 
     def replace_all(self):
         editor = self.current_editor()
-        if not editor: return
+        if not editor:
+            return
+
         query = self.find_input.text()
         replace_text = self.replace_input.text()
         if not query:
+            self.status_bar.showMessage("Enter text to find before replacing.", 3000)
             return
 
         original_text = editor.toPlainText()
@@ -736,6 +744,10 @@ class MainWindow(QMainWindow):
         flags = re.IGNORECASE if not self.find_case_sensitive_checkbox.isChecked() else 0
         new_text = re.sub(pattern, replace_text, original_text, flags=flags)
 
-        if original_text != new_text:
-            editor.setPlainText(new_text)
-            self.status_bar.showMessage(f"Replaced all occurrences of '{query}'.", 3000)
+        if original_text == new_text:
+            self.status_bar.showMessage(f"No occurrences of '{query}' found.", 3000)
+            return
+
+        editor.setPlainText(new_text)
+        editor.document().setModified(True)
+        self.status_bar.showMessage(f"Replaced all occurrences of '{query}'.", 3000)
