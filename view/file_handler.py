@@ -19,11 +19,16 @@ class FileHandler:
         self.file_service = file_service or FileService()
 
     def new_file(self, is_initial_tab=False):
-        """Prompts the user to create a new file, asking for name and location."""
+        """Create a new file tab.
+
+        If is_initial_tab=True, a new empty untitled tab is created without prompting
+        the user for a file path. Otherwise, the user is asked to select a new path.
+        """
+        if is_initial_tab and self.tab_widget.count() > 0:
+            return
+
         file_path = None
-        if is_initial_tab:
-            pass
-        else:
+        if not is_initial_tab:
             options = QFileDialog.Options()
             file_path, _ = QFileDialog.getSaveFileName(self.main_window, "Create New File", "", "Text Files (*.txt);;Markdown Files (*.md *.markdown);;Python Files (*.py);;All Files (*)", options=options)
             if not file_path:
@@ -167,8 +172,8 @@ class FileHandler:
         for i in range(self.tab_widget.count() - 1, -1, -1):
             # close_tab returns False if the user cancels the close operation
             if not self.close_tab(i):
-                # If user cancels, stop closing further tabs
-                break
+                return False
+        return True
 
     def close_tab(self, index):
         editor_widget = self.tab_widget.widget(index)
