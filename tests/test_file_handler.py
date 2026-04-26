@@ -59,3 +59,32 @@ class TestFileHandler(unittest.TestCase):
 
         self.assertFalse(handler.is_file_open("/tmp/test.txt"))
         self.assertIsNone(dummy_tab.current_index)
+
+    def test_close_all_files_returns_false_when_cancelled(self):
+        dummy_tab = DummyTabWidget([DummyEditor("/tmp/test.txt"), DummyEditor("/tmp/test2.txt")])
+        main_window = DummyMainWindow(dummy_tab)
+        handler = FileHandler(main_window, file_service=MagicMock())
+        handler.close_tab = MagicMock(side_effect=[False])
+
+        self.assertFalse(handler.close_all_files())
+        handler.close_tab.assert_called_once()
+
+    def test_new_file_initial_tab_creates_new_tab_when_no_tabs(self):
+        dummy_tab = DummyTabWidget([])
+        main_window = DummyMainWindow(dummy_tab)
+        handler = FileHandler(main_window, file_service=MagicMock())
+        handler.create_new_tab = MagicMock()
+
+        handler.new_file(is_initial_tab=True)
+
+        handler.create_new_tab.assert_called_once_with(None)
+
+    def test_new_file_initial_tab_returns_when_tab_exists(self):
+        dummy_tab = DummyTabWidget([DummyEditor("/tmp/test.txt")])
+        main_window = DummyMainWindow(dummy_tab)
+        handler = FileHandler(main_window, file_service=MagicMock())
+        handler.create_new_tab = MagicMock()
+
+        handler.new_file(is_initial_tab=True)
+
+        handler.create_new_tab.assert_not_called()
