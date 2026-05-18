@@ -1,29 +1,24 @@
-#
-Python
+# Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 *.pkl
-Virtual
-environments
+# Virtual environments
 venv/
 .env/
 .venv/
-Logs
+# Logs
 *.log
-Jupyter
-Notebook
-checkpoints
+# Jupyter Notebook checkpoints
 .ipynb_checkpoints/
-OS
-files
+# OS files
 .DS_Store
 Thumbs.db
-IDE
+# IDE
 .vscode/
 .idea/
-Build
+# Build
 dist/
 build/
 *.egg-info/
