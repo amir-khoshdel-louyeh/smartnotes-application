@@ -53,17 +53,29 @@ class FileService:
         with open(file_path, 'w', encoding='utf-8') as f:
             f.write(content)
 
-    def convert_odt_to_pdf(self, odt_path: str) -> str | None:
+    def convert_odt_to_pdf(self, odt_path: str, timeout: int = 60) -> str | None:
         temp_dir = tempfile.mkdtemp()
-        subprocess.run(
-            ['libreoffice', '--headless', '--convert-to', 'pdf', '--outdir', temp_dir, odt_path],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
+        try:
+            subprocess.run(
+                ['libreoffice', '--headless', '--convert-to', 'pdf', '--outdir', temp_dir, odt_path],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
+            import shutil
+
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            return None
         base_name = os.path.splitext(os.path.basename(odt_path))[0]
         pdf_path = os.path.join(temp_dir, f"{base_name}.pdf")
-        return pdf_path if os.path.exists(pdf_path) else None
+        if os.path.exists(pdf_path):
+            return pdf_path
+        import shutil
+
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        return None
 
     def supported_text_extensions(self) -> list[str]:
         return list(self._reader_registry().keys())
