@@ -180,11 +180,14 @@ class FileHandler:
         if not editor_widget:
             return True
 
-        # Clean up temporary PDF files from ODT conversions
-        if isinstance(editor_widget, PdfViewer) and editor_widget.is_temporary_file:
-            temp_dir = os.path.dirname(editor_widget.file_path)
-            if os.path.isdir(temp_dir):
-                shutil.rmtree(temp_dir, ignore_errors=True)
+        # Clean up PdfViewer resources and temporary PDFs from ODT conversions
+        if isinstance(editor_widget, PdfViewer):
+            if hasattr(editor_widget, "cleanup"):
+                editor_widget.cleanup()
+            if editor_widget.is_temporary_file:
+                temp_dir = os.path.dirname(editor_widget.file_path)
+                if os.path.isdir(temp_dir):
+                    shutil.rmtree(temp_dir, ignore_errors=True)
 
         # Check for modifications only if it's an editor
         if isinstance(editor_widget, EditorArea) and editor_widget.document().isModified():

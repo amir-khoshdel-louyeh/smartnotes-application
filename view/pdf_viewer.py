@@ -16,6 +16,7 @@ class PdfViewer(QWidget):
         self.zoom_factor = 1.0
         self.current_page = 0
 
+        self.document = None
         try:
             self.document = fitz.open(self.file_path)
         except Exception as e:
@@ -142,5 +143,18 @@ class PdfViewer(QWidget):
         self.render_page()
 
     def closeEvent(self, event):
-        self.document.close()
+        if getattr(self, "document", None) is not None:
+            try:
+                self.document.close()
+            except Exception:
+                pass
         super().closeEvent(event)
+
+    def cleanup(self):
+        """Explicit cleanup for FileHandler.removeTab path where closeEvent isn't sent."""
+        if getattr(self, "document", None) is not None:
+            try:
+                self.document.close()
+            except Exception:
+                pass
+            self.document = None
