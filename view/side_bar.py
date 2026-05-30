@@ -232,6 +232,9 @@ class SideBar(QDockWidget):
         self.key_points_button = QPushButton("Get Key Points")
         layout.addWidget(self.key_points_button)
 
+        self.mind_map_button = QPushButton("Generate Mind Map")
+        layout.addWidget(self.mind_map_button)
+
         # --- External AI Tools ---
         external_ai_group = QGroupBox("Launch External AI")
         external_ai_layout = QHBoxLayout(external_ai_group)
@@ -248,4 +251,22 @@ class SideBar(QDockWidget):
         self.summary_output.setReadOnly(True)
         self.summary_output.setPlaceholderText("Summary will appear here...")
         layout.addWidget(self.summary_output)
+
+        self.mind_map_preview = QLabel()
+        self.mind_map_preview.setAlignment(Qt.AlignCenter)
+        self.mind_map_preview.setStyleSheet("border: 1px solid #555;")
+        self.mind_map_preview.setMinimumHeight(180)
+        self.mind_map_preview.hide()
+        layout.addWidget(self.mind_map_preview)
+
+        self.mind_map_text_output = QTextEdit()
+        self.mind_map_text_output.setReadOnly(True)
+        self.mind_map_text_output.setPlaceholderText("Mind map indented list will appear here...")
+        self.mind_map_text_output.hide()
+        layout.addWidget(self.mind_map_text_output)
+
+        self.mind_map_export_button = QPushButton("Export Mind Map PNG")
+        self.mind_map_export_button.hide()
+        layout.addWidget(self.mind_map_export_button)
+
         self.ai_tab.setLayout(layout)
