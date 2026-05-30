@@ -2,20 +2,19 @@
 # - libreoffice (for .odt to .pdf conversion, e.g., `sudo apt-get install libreoffice`)
 
 # GUI Framework
-PyQt5==5.15.10
-PyQt5-sip==12.13.0
+PyQt5>=5.15.10,<6
 
 # File Handling
-python-docx==1.1.0
-pypdf==4.0.0
-PyMuPDF==1.23.0
-odfpy==1.4.1
+python-docx>=1.1.2
+pypdf>=4.0,<7
+PyMuPDF>=1.23
+odfpy>=1.4.1
 
 # Machine Learning / NLP for Summarization and Key Points
-torch==2.0.0
-transformers==4.31.0
-requests==2.31.0
+torch>=2.4
+transformers>=4.41,<6
+requests>=2.32
 
 # Visualization / Graphs
-matplotlib==3.8.1
-networkx==3.3
+matplotlib>=3.8.1
+networkx>=3.3
