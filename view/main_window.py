@@ -14,6 +14,8 @@ from view.ui_controller import UIController
 from view.ai_workers import SummarizationWorker, KeyPointsWorker, PreloadWorker
 from services.search_service import SearchService
 from services.lifecycle import LifecycleService
+from services.mind_map_generator import MindMapWorker
+from services.graph_visualizer import parse_indented_text, create_mind_map_pixmap
 import os
 
 class MainWindow(QMainWindow):
@@ -23,6 +25,8 @@ class MainWindow(QMainWindow):
         self.setGeometry(100, 100, 1400, 900)
         self.sidebar_width = 300 # Default/initial width
         self.thread_pool = QThreadPool()
+        self._last_mind_map_pixmap = None
+        self._last_mind_map_text = ""
 
         # Menu Bar
         self.menu_bar = MenuBar(self)
@@ -188,6 +192,8 @@ class MainWindow(QMainWindow):
         # AI Tab
         self.sidebar.summarize_button.clicked.connect(self.run_summarization)
         self.sidebar.key_points_button.clicked.connect(self.run_key_points_extraction)
+        self.sidebar.mind_map_button.clicked.connect(self.run_mind_map_generation)
+        self.sidebar.mind_map_export_button.clicked.connect(self.export_mind_map)
         self.sidebar.gemini_button.clicked.connect(lambda: self.open_external_link("https://gemini.google.com/"))
         self.sidebar.chatgpt_button.clicked.connect(lambda: self.open_external_link("https://chat.openai.com/"))
         self.sidebar.copilot_button.clicked.connect(lambda: self.open_external_link("https://copilot.microsoft.com/"))
@@ -298,6 +304,70 @@ class MainWindow(QMainWindow):
         self.sidebar.summary_output.setText(error_message)
         self.sidebar.key_points_button.setEnabled(True)
         self.status_bar.showMessage("Key points extraction error.", 5000)
+
+    def run_mind_map_generation(self):
+        editor = self.current_editor()
+        if not editor:
+            self.status_bar.showMessage("Open a document to generate a mind map.", 3000)
+            return
+        text = editor.toPlainText()
+        if not text.strip():
+            self.sidebar.summary_output.setText("Editor is empty. Nothing to map.")
+            return
+        self.sidebar.mind_map_button.setEnabled(False)
+        self.sidebar.mind_map_text_output.hide()
+        self.sidebar.mind_map_preview.hide()
+        self.sidebar.mind_map_export_button.hide()
+        self.sidebar.summary_output.setText("Generating mind map...")
+        self.status_bar.showMessage("Generating mind map...")
+        worker = MindMapWorker(text)
+        worker.signals.finished.connect(self.on_mind_map_finished)
+        worker.signals.error.connect(self.on_mind_map_error)
+        self.thread_pool.start(worker)
+
+    def on_mind_map_finished(self, indented_text: str):
+        self._last_mind_map_text = indented_text
+        self.sidebar.mind_map_text_output.setPlainText(indented_text)
+        self.sidebar.mind_map_text_output.show()
+        try:
+            graph = parse_indented_text(indented_text)
+            is_dark = self.settings_model.theme.lower() == "dark"
+            pixmap = create_mind_map_pixmap(graph, is_dark)
+            if not pixmap.isNull():
+                # scale to sidebar width while keeping aspect
+                w = max(260, self.sidebar.width() - 20)
+                scaled = pixmap.scaledToWidth(w, Qt.SmoothTransformation)
+                self.sidebar.mind_map_preview.setPixmap(scaled)
+                self.sidebar.mind_map_preview.show()
+                self._last_mind_map_pixmap = pixmap
+                self.sidebar.mind_map_export_button.show()
+            else:
+                self.sidebar.mind_map_preview.hide()
+                self._last_mind_map_pixmap = None
+        except Exception as e:
+            self.status_bar.showMessage(f"Mind map render failed: {e}", 5000)
+            self._last_mind_map_pixmap = None
+        self.sidebar.mind_map_button.setEnabled(True)
+        self.sidebar.summary_output.setText(indented_text)
+        self.status_bar.showMessage("Mind map ready.", 5000)
+
+    def on_mind_map_error(self, msg: str):
+        self.sidebar.summary_output.setText(msg)
+        self.sidebar.mind_map_button.setEnabled(True)
+        self.status_bar.showMessage("Mind map error.", 5000)
+
+    def export_mind_map(self):
+        if self._last_mind_map_pixmap is None or self._last_mind_map_pixmap.isNull():
+            self.status_bar.showMessage("No mind map to export.", 3000)
+            return
+        path, _ = QFileDialog.getSaveFileName(self, "Export Mind Map", "mindmap.png", "PNG Files (*.png);;All Files (*)")
+        if path:
+            if not path.lower().endswith(".png"):
+                path += ".png"
+            if self._last_mind_map_pixmap.save(path, "PNG"):
+                self.status_bar.showMessage(f"Mind map exported to {os.path.basename(path)}", 5000)
+            else:
+                QMessageBox.warning(self, "Export failed", "Could not save mind map image.")
 
     def suggest_study_plan(self):
         # Placeholder for adaptive scheduler logic
