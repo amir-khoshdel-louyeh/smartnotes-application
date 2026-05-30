@@ -2,7 +2,7 @@ name: Python CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, local_commit]
   pull_request:
     branches: [main, master]
 
@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.11, 3.12]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
 
     steps:
       - uses: actions/checkout@v4
@@ -19,10 +19,12 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          cache: pip
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
           python -m pip install -r requirements-dev.txt
-      - name: Run unit tests
-        run: python -m unittest discover tests
+      - name: Run tests with pytest
+        run: python -m pytest tests -q --cov=. --cov-report=term-missing
+      - name: Run unittest fallback
+        run: python -m unittest discover tests -v
