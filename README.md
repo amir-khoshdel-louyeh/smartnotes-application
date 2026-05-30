@@ -15,7 +15,7 @@ A lightweight study notes application built with PyQt5. Create and edit notes, v
 
 ## Requirements
 
-- Python 3.9+
+- Python 3.11+ (tested on 3.11–3.14)
 - Linux/macOS/Windows (Linux tested)
 - System dependencies:
 	- `libreoffice` (for `.odt` → `.pdf` conversion)
@@ -94,11 +94,10 @@ pip install -r requirements.txt
 python main.py
 ```
 
-Recommended next improvements:
-- Chunk long texts for summarization (token-limit aware)
-- Persist scheduler tasks to disk
-- Wire mind-map visualizer into the UI and add export
-- Add tests (e.g., `pytest`, `pytest-qt`) and CI
+Recent improvements:
+- Dependencies updated to support Python 3.11–3.14 and secure versions
+- Chunk-aware summarization, persisted scheduler, wired mind-map visualizer
+- Tests with `pytest` and CI on 3.11–3.14
 
 ## License
 
