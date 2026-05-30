@@ -29,9 +29,27 @@ class SummarizerService:
             raise ValueError("Text is empty.")
 
         summarizer = cls.get_summarizer()
-        text_word_count = len(text.split())
+        # Chunk long texts to respect model's token limit (~1024 tokens ≈ 750 words)
+        max_chunk_words = 600
+        words = text.split()
+        if len(words) > max_chunk_words:
+            chunks = [" ".join(words[i:i + max_chunk_words]) for i in range(0, len(words), max_chunk_words)]
+            summaries = []
+            for chunk in chunks:
+                chunk_wc = len(chunk.split())
+                min_len, max_len = cls.get_summary_lengths(chunk_wc)[length_option]
+                # Clamp to model's hard limits to avoid warnings
+                max_len = min(max_len, 150)
+                min_len = min(min_len, max_len - 5)
+                result = summarizer(chunk, max_length=max_len, min_length=min_len, do_sample=False, truncation=True)
+                summaries.append(result[0]['summary_text'])
+            return "\n\n".join(summaries)
+
+        text_word_count = len(words)
         min_len, max_len = cls.get_summary_lengths(text_word_count)[length_option]
-        summary = summarizer(text, max_length=max_len, min_length=min_len, do_sample=False)
+        max_len = min(max_len, 150)
+        min_len = min(min_len, max_len - 5)
+        summary = summarizer(text, max_length=max_len, min_length=min_len, do_sample=False, truncation=True)
         return summary[0]['summary_text']
 
     @staticmethod

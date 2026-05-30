@@ -17,22 +17,26 @@ def parse_indented_text(text: str):
     root_node = lines[0].strip()
     graph.add_node(root_node)
 
-    # Path from root to current node
-    path = {0: root_node}
+    # Path from root to current node (root at -1 so 0-indent children map to root)
+    path = {-1: root_node}
 
     for line in lines[1:]:
         indentation = len(line) - len(line.lstrip(' '))
         node_name = line.strip()
 
-        # Find the parent in the path based on indentation
-        parent_indent = max(i for i in path if i < indentation)
+        # Find the parent in the path based on indentation; fallback to root
+        valid = [i for i in path if i < indentation]
+        parent_indent = max(valid) if valid else -1
         parent_node = path[parent_indent]
 
         graph.add_node(node_name)
         graph.add_edge(parent_node, node_name)
 
-        # Update the path
+        # Update path; prune deeper levels to keep siblings correct
         path[indentation] = node_name
+        for k in list(path.keys()):
+            if k > indentation:
+                del path[k]
 
     return graph
 

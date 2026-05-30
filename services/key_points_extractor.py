@@ -29,6 +29,11 @@ class KeyPointsService:
             raise ValueError("Text is empty.")
 
         extractor = cls.get_extractor()
-        key_points = extractor(text)
+        # Truncate to first ~500 words to stay inside token limit; chunk if longer
+        max_chunk_words = 450
+        words = text.split()
+        if len(words) > max_chunk_words:
+            text = " ".join(words[:max_chunk_words])
+        key_points = extractor(text, truncation=True)
         processed_points = [f"- {point['word']} (Score: {point['score']:.2f})" for point in key_points if point.get('entity') == 'B-KEY']
         return "\n".join(processed_points) if processed_points else "No key points found."
