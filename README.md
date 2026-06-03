@@ -101,5 +101,5 @@ Recent improvements:
 
 ## License
 
-Add your license of choice here (e.g., MIT). If you already have a license file, link it.
+MIT – see [LICENSE](LICENSE).
 
