@@ -370,8 +370,25 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, "Export failed", "Could not save mind map image.")
 
     def suggest_study_plan(self):
-        # Placeholder for adaptive scheduler logic
-        self.sidebar.schedule_output.setPlainText("Feature coming soon!\n\nThis will analyze your notes and suggest a study plan based on topics and your activity.")
+        editor = self.current_editor()
+        text = editor.toPlainText().strip() if editor else ""
+        if not text:
+            QMessageBox.information(self, "Study Plan", "Open a document with notes to generate a plan.")
+            return
+        # Heuristic: split into topics by headings / blank lines, suggest 25-min pomodoro per topic
+        topics = [line.strip(" -#*") for line in text.splitlines() if line.strip().startswith(("#", "-", "*", "•")) or line.strip().endswith(":")]
+        if not topics:
+            # fallback: first sentences as topics
+            sentences = [s.strip() for s in text.split(".") if s.strip()][:5]
+            topics = sentences
+        if not topics:
+            topics = ["General review"]
+        plan_lines = ["Suggested Study Plan (Pomodoro 25/5):", ""]
+        for i, t in enumerate(topics[:8], 1):
+            plan_lines.append(f"{i}. {t[:80]} — 25 min focus + 5 min break")
+        plan_lines.append("")
+        plan_lines.append(f"Total: ~{len(topics[:8])*30} min. Tip: check tasks in Scheduler tab.")
+        QMessageBox.information(self, "Study Plan", "\n".join(plan_lines))
 
     def editor_zoom_in(self):
         editor = self.current_editor()
@@ -748,16 +765,28 @@ class MainWindow(QMainWindow):
         self.set_theme("dark" if checked else "light")
 
     def show_documentation(self):
-        self.status_bar.showMessage("Show documentation action triggered (not implemented).", 3000)
+        QMessageBox.information(self, "Documentation", "StudyMate Help:\n\n• File → New/Open/Save, multi-tab editor, find/replace (Ctrl+F)\n• PDF viewer with zoom & page navigation\n• AI Sidebar: Summarize, Key Points, Generate Mind Map (+ Export PNG)\n• Scheduler: add tasks, mark done (persisted)\n• Settings: theme, font, sidebar width\n\nDocs: README.md in repo root.")
 
     def check_for_updates(self):
-        self.status_bar.showMessage("Check for updates action triggered (not implemented).", 3000)
+        try:
+            import requests
+            r = requests.get("https://api.github.com/repos/smartnotes-app/smartnotes-application/releases/latest", timeout=5)
+            if r.status_code == 200:
+                tag = r.json().get("tag_name", "unknown")
+                QMessageBox.information(self, "Updates", f"Latest release: {tag}\nYou are on v0.2.0.\nVisit GitHub to update if needed.")
+            else:
+                raise RuntimeError(f"HTTP {r.status_code}")
+        except Exception as e:
+            QMessageBox.warning(self, "Updates", f"Could not check for updates:\n{e}\n\nVisit github.com to check manually.")
+            self.status_bar.showMessage("Update check failed.", 4000)
 
     def send_feedback(self):
-        self.status_bar.showMessage("Send feedback action triggered (not implemented).", 3000)
+        QDesktopServices.openUrl(QUrl("https://github.com/smartnotes-application/issues/new"))
+        self.status_bar.showMessage("Opened feedback page in browser.", 3000)
 
     def show_about_dialog(self):
-        self.status_bar.showMessage("Show about dialog action triggered (not implemented).", 3000)
+        QMessageBox.about(self, "About StudyMate",
+                          "StudyMate (SmartNotes) v0.2.0\n\nLightweight PyQt5 notes, PDF viewer, AI summarizer & scheduler.\n\nPython 3.11+ • PyQt5 • Hugging Face transformers\nLicensed MIT – see LICENSE file.\n© 2026 StudyMate contributors.")
 
     def replace_current(self):
         editor = self.current_editor()
