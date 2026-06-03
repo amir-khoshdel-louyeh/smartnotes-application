@@ -44,26 +44,13 @@ python main.py
 
 First run downloads ML models (hundreds of MB). This may take a few minutes depending on your connection.
 
-## Screenshots (Placeholders)
+## Screenshots
 
-Add images under `docs/screenshots/` and update the paths below.
+> Screenshots are stored under `docs/screenshots/` – run the app and capture them, or contribute your own. Placeholders below will render once images exist.
 
-```text
-docs/
-	screenshots/
-		main-window.png
-		sidebar-ai.png
-		pdf-viewer.png
-		scheduler.png
-```
-
-![Main Window](docs/screenshots/main-window.png)
-
-![AI Sidebar](docs/screenshots/sidebar-ai.png)
-
-![PDF Viewer](docs/screenshots/pdf-viewer.png)
-
-![Scheduler](docs/screenshots/scheduler.png)
+| Main Window | AI Sidebar | PDF Viewer | Scheduler |
+|---|---|---|---|
+| `docs/screenshots/main-window.png` | `docs/screenshots/sidebar-ai.png` | `docs/screenshots/pdf-viewer.png` | `docs/screenshots/scheduler.png` |
 
 ## Tips & Notes
 
