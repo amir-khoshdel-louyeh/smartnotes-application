@@ -452,18 +452,17 @@ class MainWindow(QMainWindow):
         self.apply_theme()
 
     def set_dark_theme(self):
-        from view.styles import DARK_STYLESHEET
+        from view.theme_manager import ThemeManager
 
-        QApplication.instance().setProperty("theme", "dark")
-        QApplication.instance().setStyleSheet(DARK_STYLESHEET)
+        ThemeManager.apply_dark()
 
     def apply_dark_theme(self):
         self.set_dark_theme()
 
     def apply_light_theme(self):
-        QApplication.instance().setStyleSheet("")  # Reset to default os style
-        QApplication.instance().setProperty("theme", "light")
-        self.sidebar.setStyleSheet("") # Reset sidebar font
+        from view.theme_manager import ThemeManager
+
+        ThemeManager.apply_light(self.sidebar)
 
     def load_settings(self):
         self.apply_settings_to_ui()
@@ -483,19 +482,10 @@ class MainWindow(QMainWindow):
         self.apply_word_wrap(Qt.Checked if self.settings_model.word_wrap else Qt.Unchecked)
 
     def apply_theme(self):
-        theme = self.settings_model.theme.lower()
-        is_dark = theme == "dark"
+        from view.theme_manager import ThemeManager
 
-        self.sidebar.theme_combo.blockSignals(True)
-        self.menu_bar.actions["dark_mode"].blockSignals(True)
-
-        self.sidebar.theme_combo.setCurrentText(theme.capitalize())
-        self.menu_bar.actions["dark_mode"].setChecked(is_dark)
-
-        self.sidebar.theme_combo.blockSignals(False)
-        self.menu_bar.actions["dark_mode"].blockSignals(False)
-
-        if is_dark:
+        ThemeManager.sync_ui(self.sidebar, self.menu_bar.actions, self.settings_model.theme)
+        if self.settings_model.theme.lower() == "dark":
             self.apply_dark_theme()
         else:
             self.apply_light_theme()
