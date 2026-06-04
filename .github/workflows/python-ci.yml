@@ -44,9 +44,11 @@ jobs:
       - name: Run tests with pytest (xvfb + offscreen)
         env:
           QT_QPA_PLATFORM: offscreen
+        run: xvfb-run -a python -m pytest tests -q --cov=. --cov-report=term-missing --cov-report=xml
+      - name: Security audit
         run: |
-          xvfb-run -a python -m pytest tests -q --cov=. --cov-report=term-missing --cov-report=xml
-          xvfb-run -a python -m unittest discover tests -v
+          pip install pip-audit
+          pip-audit --desc || true
       - name: Upload coverage
         if: matrix.python-version == '3.11'
         uses: codecov/codecov-action@v4
