@@ -21,6 +21,11 @@ dependencies = [
 dev = [
     "pytest>=7.4",
     "pytest-cov>=4.1",
+    "pytest-qt>=4.4",
+    "pytest-mock>=3.12",
+    "ruff>=0.8",
+    "black>=24.0",
+    "mypy>=1.10",
 ]
 
 [tool.pytest.ini_options]
@@ -31,6 +36,28 @@ pythonpath = ["."]
 [tool.coverage.run]
 source = ["services", "view"]
 omit = ["tests/*", "view/__pycache__/*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+exclude = ["tests"]
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]
