@@ -7,6 +7,19 @@ on:
     branches: [main, master]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install ruff black mypy
+      - run: ruff check . --output-format=github
+      - run: black --check --line-length 100 .
+      - run: mypy services view --ignore-missing-imports --explicit-package-bases
+
   test:
     runs-on: ubuntu-latest
     strategy:
