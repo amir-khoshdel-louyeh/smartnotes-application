@@ -1,36 +1,40 @@
 # Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
 *.pyd
 *.pkl
+*.pyo
+
 # Virtual environments
 venv/
 .env/
 .venv/
+
 # Logs
 *.log
+
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
+
 # OS files
 .DS_Store
 Thumbs.db
+
 # IDE
 .vscode/
 .idea/
+
 # Build
 dist/
 build/
 *.egg-info/
 
-# Python cache and test artifacts
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
+# Cache and coverage
 .mypy_cache/
 .pytest_cache/
 .coverage
+coverage.xml
+htmlcov/
 
+# Project specific
 note.txt
-help.txt
