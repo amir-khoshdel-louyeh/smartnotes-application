@@ -130,6 +130,9 @@ class SchedulerTab(QWidget):
     def add_task_widget(self, task_data):
         task_item_widget = TaskWidget(task_data)
         task_item_widget.status_changed.connect(self.on_task_status_changed)
+        task_item_widget.priority_changed.connect(self.on_task_priority_changed)
+        task_item_widget.request_delete.connect(self.on_task_delete)
+        task_item_widget.request_edit.connect(self.on_task_edit)
         list_item = QListWidgetItem(self.task_list_widget)
         list_item.setSizeHint(task_item_widget.sizeHint())
         self.task_list_widget.addItem(list_item)
@@ -139,5 +142,30 @@ class SchedulerTab(QWidget):
         for task in self.tasks:
             if task.get("id") == task_id:
                 task["status"] = new_status
+                break
+        self.save_tasks()
+
+    def on_task_priority_changed(self, task_id, new_priority):
+        for task in self.tasks:
+            if task.get("id") == task_id:
+                task["priority"] = new_priority
+                break
+        self.save_tasks()
+
+    def on_task_edit(self, task_id, new_title):
+        for task in self.tasks:
+            if task.get("id") == task_id:
+                task["title"] = new_title
+                break
+        self.save_tasks()
+
+    def on_task_delete(self, task_id):
+        self.tasks = [t for t in self.tasks if t.get("id") != task_id]
+        # Remove widget from list
+        for i in range(self.task_list_widget.count()):
+            item = self.task_list_widget.item(i)
+            widget = self.task_list_widget.itemWidget(item)
+            if widget and getattr(widget, "task_data", {}).get("id") == task_id:
+                self.task_list_widget.takeItem(i)
                 break
         self.save_tasks()
