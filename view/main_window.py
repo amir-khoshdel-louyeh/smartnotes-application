@@ -222,7 +222,12 @@ class MainWindow(QMainWindow):
         self.sidebar.explore_view.doubleClicked.connect(self.on_explore_file_selected)
 
     def open_external_link(self, url_string):
-        QDesktopServices.openUrl(QUrl(url_string))
+        url = QUrl(url_string)
+        if not QDesktopServices.openUrl(url):
+            QMessageBox.warning(self, "Browser error", f"Could not open:\n{url_string}\n\nPlease open it manually.")
+            self.status_bar.showMessage(f"Failed to open {url_string}", 4000)
+        else:
+            self.status_bar.showMessage(f"Opened {url.host()}", 3000)
 
     def on_modification_changed(self, editor, modified):
         """Updates the tab title with an asterisk when modified."""
