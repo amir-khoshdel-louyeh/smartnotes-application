@@ -17,6 +17,9 @@ dependencies = [
     "networkx>=3.3",
 ]
 
+[project.scripts]
+studymate = "main:main"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=7.4",
@@ -26,6 +29,8 @@ dev = [
     "ruff>=0.8",
     "black>=24.0",
     "mypy>=1.10",
+    "pre-commit>=3.8",
+    "pip-audit>=2.7",
 ]
 
 [tool.pytest.ini_options]
