@@ -84,11 +84,15 @@ class SideBar(QDockWidget):
 
         # Toolbar for file explorer
         toolbar = QToolBar()
-        toolbar.setIconSize(self.style().standardIcon(QStyle.SP_DirOpenIcon).actualSize(self.sizeHint() / 2)) # Smaller icons
+        toolbar.setIconSize(self.style().standardIcon(QStyle.SP_DirOpenIcon).actualSize(self.sizeHint()))
         self.new_file_action = QAction(self.style().standardIcon(QStyle.SP_FileDialogNewFolder), "New File", self)
+        self.new_file_action.setToolTip("Create new file in selected folder")
         self.new_folder_action = QAction(self.style().standardIcon(QStyle.SP_DirIcon), "New Folder", self)
+        self.new_folder_action.setToolTip("Create new folder")
         self.refresh_action = QAction(self.style().standardIcon(QStyle.SP_BrowserReload), "Refresh", self)
+        self.refresh_action.setToolTip("Refresh explorer")
         self.collapse_action = QAction(self.style().standardIcon(QStyle.SP_ArrowUp), "Collapse All", self)
+        self.collapse_action.setToolTip("Collapse all")
         toolbar.addAction(self.new_file_action)
         toolbar.addAction(self.new_folder_action)
         toolbar.addAction(self.refresh_action)
@@ -97,6 +101,9 @@ class SideBar(QDockWidget):
 
         # File System Model and Tree View
         self.file_model = QFileSystemModel()
+        # Filter out noisy/binary artifacts but keep source + doc types
+        self.file_model.setNameFilters(["*.txt", "*.md", "*.markdown", "*.py", "*.pdf", "*.docx", "*.odt", "*.json", "*.png", "*.jpg", "*.jpeg"])
+        self.file_model.setNameFilterDisables(False)  # hide non-matching
         self.explore_view = QTreeView()
         self.explore_view.setModel(self.file_model)
         self.explore_view.setHeaderHidden(True)
@@ -107,6 +114,13 @@ class SideBar(QDockWidget):
         self.explore_view.setIndentation(15)
         self.explore_view.setSortingEnabled(True)
         tree_layout.addWidget(self.explore_view)
+
+        # Filter toggle
+        self.explorer_filter_checkbox = QCheckBox("Show all files")
+        self.explorer_filter_checkbox.setChecked(False)
+        self.explorer_filter_checkbox.setToolTip("When unchecked, only text/docs/images are shown")
+        self.explorer_filter_checkbox.stateChanged.connect(self.toggle_explorer_filter)
+        tree_layout.addWidget(self.explorer_filter_checkbox)
 
         self.explore_stack.addWidget(welcome_widget)
         self.explore_stack.addWidget(self.explore_view_widget)
@@ -151,6 +165,14 @@ class SideBar(QDockWidget):
             if not self.file_model.isDir(index):
                 dir_path = self.file_model.filePath(index.parent())
         self.file_model.mkdir(self.file_model.index(dir_path), "New Folder")
+
+    def toggle_explorer_filter(self, state):
+        if state == Qt.Checked:
+            self.file_model.setNameFilters([])
+            self.file_model.setNameFilterDisables(True)
+        else:
+            self.file_model.setNameFilters(["*.txt", "*.md", "*.markdown", "*.py", "*.pdf", "*.docx", "*.odt", "*.json", "*.png", "*.jpg", "*.jpeg"])
+            self.file_model.setNameFilterDisables(False)
 
     def refresh_explorer(self):
         self.file_model.setRootPath(self.file_model.rootPath()) # Re-reading the root path refreshes it
