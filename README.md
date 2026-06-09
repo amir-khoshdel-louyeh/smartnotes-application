@@ -67,11 +67,23 @@
 
 ### Application Screenshots
 
-| AI Tools | File Explorer | Scheduler | Settings & Editor |
-|---|---|---|---|
-| ![AI Sidebar](assets/ai.png) | ![Explorer](assets/explore.png) | ![Scheduler](assets/scheduler.png) | ![Settings](assets/setting.png) |
+> All images live in `assets/` (source captures) and `docs/screenshots/` (contributor placeholders). Below are full-size captures from the current build (Fedora, offscreen 796×596).
 
-> All images live in `assets/` (source captures) and `docs/screenshots/` (contributor placeholders). The table above uses the real captures from the current build. The AI tab shows *Summarize / Get Key Points / Generate Mind Map* + external launchers (Gemini/ChatGPT/Copilot) and a live mind-map preview with PNG export. Explorer shows filtered `QFileSystemModel` with “Show all files” toggle. Scheduler shows inline priority (`low/medium/high`), checkbox, double-click to edit, and `✕` delete. Settings shows theme/font/width controls.
+#### AI Tools — Summarize / Key Points / Mind Map
+![AI Sidebar](assets/ai.png)
+*AI tab with `Summary Length` selector, `Summarize`, `Get Key Points`, `Generate Mind Map` and `Launch External AI` (Gemini / ChatGPT / Copilot). Output appears in `Summary will appear here...` `QTextEdit`, mind-map preview (`QLabel` `QPixmap`) and `Export PNG` button are shown after generation.*
+
+#### File Explorer — Filtered Model & Tabs
+![Explorer](assets/explore.png)
+*Explorer uses `QFileSystemModel.setNameFilters` (`*.txt, *.md, *.py, *.pdf, *.docx, *.odt`) with `Show all files` toggle. Toolbar icons are now full-size (`actualSize(self.sizeHint())`), top bar shows `test` / `test2*` tabs with close buttons.*
+
+#### Scheduler — Priority, Edit & Delete
+![Scheduler](assets/scheduler.png)
+*Scheduler with `Add a new task and press Enter...`, task row shows checkbox, priority `low ▼` combo, `✕` delete. Double-click title to inline-edit (`QLineEdit`), `Clear Scheduler` with `QMessageBox` guard. Persistence via `QStandardPaths` JSON.*
+
+#### Settings & Editor — Theme & Typography
+![Settings](assets/setting.png)
+*Settings `Appearance` group: `Theme: Light/Dark`, `Editor Font: Noto Sans Mono`, `Font Size: 11`, `Sidebar Width: 811` with `+/-`, `Sidebar Font Size: 10`, `Enable Word Wrap`. Editor shows `This is a test example.` with `Ln 1, Col 24 | Words: 5` status.*
 
 ### Example Output
 
@@ -233,7 +245,9 @@ See [System Demonstration](#system-demonstration) — real outputs from `sshleif
 
 ## Results & Metrics
 
-**Coverage (pytest):**
+### Test Coverage
+
+![Coverage by Module](assets/charts/coverage.png)
 ```text
 services/graph_visualizer.py   100% (43 stmts)
 services/mind_map_generator.py  93% (45 stmts)
@@ -242,8 +256,20 @@ services/summarizer             73% (chunk path covered)
 view/scheduler_tab              50%
 TOTAL 31 passed, 9 skipped (Qt headless via fake-Qt conftest; real Qt in CI xvfb)
 ```
+*Horizontal bar uses dark theme (`#1e1e1e` / `#2ed573` ≥90%, `#ffa502` ≥70%, `#ff4757` else). Full `--cov` report in `assets/charts/coverage.png`.*
 
-**Latency (CPU, 600-word chunk):** summarizer ~2–5s first load (model init), ~0.8s per chunk thereafter; key-points ~0.5s; mind-map ~1s. Chunking keeps peak RAM < 1.5GB vs OOM on 2k-word naive call.
+### AI Latency (CPU, 600-word chunk)
+
+![AI Latency](assets/charts/latency.png)
+**Latency:** summarizer ~2–5s first load (model init), ~0.8s per chunk thereafter; key-points ~0.5s; mind-map ~1s. Chunking keeps peak RAM < 1.5GB vs OOM on 2k-word naive call.
+
+### Quality Gates & Roadmap
+
+![Quality Gates](assets/charts/quality.png)
+*Left pie: 40 tests collected (31 passed 78%, 9 skipped 22% when fake-Qt). Right bar: P0 Broken/wired, P1 Tests/Quality, P2 CI/Hygiene, P3 Nice-to-have — all 100% after roadmap.*
+
+![Codebase Size](assets/charts/codebase.png)
+*Lines of code per component — `view/main_window.py` 749 (slimmed from 843 via `styles.py` + `theme_manager.py`), `services/` ~380, `tests/` ~800.*
 
 **Trade-off:** DistilBART is 306M params — fast on CPU but less abstractive than larger PEGASUS; chosen for offline demo. Swapping to `facebook/bart-large-cnn` is a one-line `pipeline(model=...)` change in `MindMapService.get_generator`.
 
