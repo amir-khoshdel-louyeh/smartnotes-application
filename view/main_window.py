@@ -559,15 +559,19 @@ class MainWindow(QMainWindow):
         self.sidebar.widget().setStyleSheet(f"font-size: {size}pt;")
         self.sidebar.sidebar_font_size_label.setText(str(size))
 
-    def set_word_wrap(self, state):
+    def apply_word_wrap(self, state):
         enabled = state == Qt.Checked
-        self.settings_model.update_word_wrap(enabled)
-        self.settings_model.save(self.settings_manager)
         mode = QTextOption.WordWrap if enabled else QTextOption.NoWrap
         for i in range(self.tab_widget.count()):
             widget = self.tab_widget.widget(i)
             if isinstance(widget, EditorArea):
                 widget.setWordWrapMode(mode)
+
+    def set_word_wrap(self, state):
+        enabled = state == Qt.Checked
+        self.settings_model.update_word_wrap(enabled)
+        self.settings_model.save(self.settings_manager)
+        self.apply_word_wrap(state)
 
     def print_file(self):
         editor = self.current_editor()
