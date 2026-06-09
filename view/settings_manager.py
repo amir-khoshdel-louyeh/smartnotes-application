@@ -8,7 +8,9 @@ class SettingsManager:
         self._settings = QSettings("StudyMate", "StudyMate")
 
     def value(self, key, default=None, type=None):
-        return self._settings.value(key, default, type=type)
+        if type is not None:
+            return self._settings.value(key, default, type=type)
+        return self._settings.value(key, default)
 
     def setValue(self, key, value):
         self._settings.setValue(key, value)
