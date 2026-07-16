@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+
 from view.settings_manager import SettingsManager
 
 

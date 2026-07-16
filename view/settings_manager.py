@@ -21,12 +21,21 @@ class SettingsManager:
     def load_settings(self):
         """Load the current saved settings into a SettingsModel."""
         from view.settings_model import SettingsModel
+
         return SettingsModel.load(self)
 
     def save_settings(self, settings_model):
         """Save a SettingsModel to persistent storage."""
         settings_model.save(self)
         self.sync()
+
+    @staticmethod
+    def _as_bool(value, default=True):
+        if isinstance(value, str):
+            return value.strip().lower() in ("true", "1", "yes", "on")
+        if value is None:
+            return default
+        return bool(value)
 
     # Theme settings
     def get_theme(self):
@@ -63,10 +72,38 @@ class SettingsManager:
 
     # Word wrap settings
     def get_word_wrap(self):
-        value = self.value("wordWrap", True, type=bool)
-        if isinstance(value, str):
-            return value.lower() in ("true", "1", "yes")
-        return bool(value)
+        return self._as_bool(self.value("wordWrap", True), True)
 
     def set_word_wrap(self, enabled: bool):
         self.setValue("wordWrap", enabled)
+
+    # Layout / window state
+    def get_sidebar_visible(self):
+        return self._as_bool(self.value("sidebarVisible", True), True)
+
+    def set_sidebar_visible(self, visible: bool):
+        self.setValue("sidebarVisible", visible)
+
+    def get_status_bar_visible(self):
+        return self._as_bool(self.value("statusBarVisible", True), True)
+
+    def set_status_bar_visible(self, visible: bool):
+        self.setValue("statusBarVisible", visible)
+
+    def get_preview_visible(self):
+        return self._as_bool(self.value("previewVisible", False), False)
+
+    def set_preview_visible(self, visible: bool):
+        self.setValue("previewVisible", visible)
+
+    def get_window_geometry(self):
+        return self.value("windowGeometry")
+
+    def get_window_state(self):
+        return self.value("windowState")
+
+    def get_window_maximized(self):
+        return self._as_bool(self.value("windowMaximized", False), False)
+
+    def set_window_maximized(self, maximized: bool):
+        self.setValue("windowMaximized", maximized)

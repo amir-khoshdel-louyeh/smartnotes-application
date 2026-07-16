@@ -1,5 +1,5 @@
-from view.file_handler import FileHandler
 from services.file_service import FileService
+from view.file_handler import FileHandler
 
 
 class UIController:

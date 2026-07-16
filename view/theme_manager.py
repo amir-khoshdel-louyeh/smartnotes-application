@@ -1,22 +1,30 @@
-"""Theme handling extracted from MainWindow God class."""
+"""Theme handling extracted from the MainWindow God class."""
 
 from PyQt5.QtWidgets import QApplication
-from view.styles import DARK_STYLESHEET
+
+from view.styles import stylesheet_for
 
 
 class ThemeManager:
     """Applies light/dark themes and syncs sidebar/menu state."""
 
     @staticmethod
-    def apply_dark():
-        QApplication.instance().setProperty("theme", "dark")
-        QApplication.instance().setStyleSheet(DARK_STYLESHEET)
+    def apply(theme_name: str):
+        app = QApplication.instance()
+        if app is None:
+            return
+        theme = (theme_name or "light").lower()
+        app.setProperty("theme", "dark" if theme == "dark" else "light")
+        app.setStyleSheet(stylesheet_for(theme))
 
     @staticmethod
-    def apply_light(sidebar):
-        QApplication.instance().setStyleSheet("")
-        QApplication.instance().setProperty("theme", "light")
-        sidebar.setStyleSheet("")
+    def apply_dark():
+        ThemeManager.apply("dark")
+
+    @staticmethod
+    def apply_light(sidebar=None):
+        # The sidebar argument is kept for backwards compatibility.
+        ThemeManager.apply("light")
 
     @staticmethod
     def sync_ui(sidebar, menu_actions, theme_name: str):

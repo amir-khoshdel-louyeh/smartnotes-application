@@ -1,5 +1,5 @@
-from PyQt5.QtWidgets import QMenuBar, QAction
 from PyQt5.QtGui import QKeySequence
+from PyQt5.QtWidgets import QAction, QMenuBar
 
 
 class MenuBar(QMenuBar):
@@ -43,8 +43,7 @@ class MenuBar(QMenuBar):
         file_menu.addSeparator()
         file_menu.addActions([save_action, save_as_action])
         file_menu.addSeparator()
-        file_menu.addAction(print_action)
-        file_menu.addAction(export_pdf_action)
+        file_menu.addActions([print_action, export_pdf_action])
         file_menu.addSeparator()
         file_menu.addActions([close_action, close_all_action])
         file_menu.addSeparator()
@@ -73,8 +72,8 @@ class MenuBar(QMenuBar):
         select_all_action = QAction("Select All", self)
         select_all_action.setShortcut(QKeySequence.SelectAll)
 
-        replace_action = QAction("Find...", self)
-        replace_action.setShortcut(QKeySequence.Replace)
+        find_action = QAction("Find / Replace...", self)
+        find_action.setShortcut(QKeySequence.Find)
 
         edit_menu.addActions([self.undo_action, self.redo_action])
         edit_menu.addSeparator()
@@ -82,7 +81,28 @@ class MenuBar(QMenuBar):
         edit_menu.addSeparator()
         edit_menu.addAction(select_all_action)
         edit_menu.addSeparator()
-        edit_menu.addAction(replace_action)
+        edit_menu.addAction(find_action)
+
+        # ---------------- AI Menu ----------------
+        ai_menu = self.addMenu("&AI")
+        summarize_action = QAction("Summarize Note", self)
+        summarize_action.setShortcut("Ctrl+Alt+S")
+
+        key_points_action = QAction("Extract Key Points", self)
+        key_points_action.setShortcut("Ctrl+Alt+K")
+
+        mind_map_action = QAction("Generate Mind Map", self)
+        mind_map_action.setShortcut("Ctrl+Alt+M")
+
+        export_mind_map_action = QAction("Export Mind Map PNG...", self)
+        export_mind_map_action.setShortcut("Ctrl+Alt+E")
+
+        study_plan_action = QAction("Create Study Plan...", self)
+        study_plan_action.setShortcut("Ctrl+Alt+P")
+
+        ai_menu.addActions([summarize_action, key_points_action, mind_map_action])
+        ai_menu.addSeparator()
+        ai_menu.addActions([export_mind_map_action, study_plan_action])
 
         # ---------------- View Menu ----------------
         view_menu = self.addMenu("&View")
@@ -95,16 +115,22 @@ class MenuBar(QMenuBar):
         reset_zoom_action = QAction("Reset Zoom", self)
         reset_zoom_action.setShortcut("Ctrl+0")
 
-        fullscreen_action = QAction("Fullscreen", self)
+        fullscreen_action = QAction("Full Screen", self)
         fullscreen_action.setShortcut("F11")
         fullscreen_action.setCheckable(True)
 
-        toggle_sidebar_action = QAction("Toggle Sidebar", self)
+        toggle_sidebar_action = QAction("Show Sidebar", self)
         toggle_sidebar_action.setShortcut("Ctrl+M")
         toggle_sidebar_action.setCheckable(True)
+        toggle_sidebar_action.setChecked(True)
 
-        toggle_statusbar_action = QAction("Toggle Status Bar", self)
+        toggle_statusbar_action = QAction("Show Status Bar", self)
         toggle_statusbar_action.setCheckable(True)
+        toggle_statusbar_action.setChecked(True)
+
+        preview_action = QAction("Markdown Preview", self)
+        preview_action.setShortcut("Ctrl+Shift+M")
+        preview_action.setCheckable(True)
 
         dark_mode_action = QAction("Dark Mode", self)
         dark_mode_action.setCheckable(True)
@@ -112,18 +138,22 @@ class MenuBar(QMenuBar):
         view_menu.addActions([zoom_in_action, zoom_out_action, reset_zoom_action])
         view_menu.addSeparator()
         view_menu.addActions([fullscreen_action, toggle_sidebar_action, toggle_statusbar_action])
+        view_menu.addAction(preview_action)
         view_menu.addSeparator()
         view_menu.addAction(dark_mode_action)
 
         # ---------------- Help Menu ----------------
         help_menu = self.addMenu("&Help")
         docs_action = QAction("Documentation", self)
+        docs_action.setShortcut("F1")
+        shortcuts_action = QAction("Keyboard Shortcuts", self)
+        shortcuts_action.setShortcut("Ctrl+/")
         check_updates_action = QAction("Check for Updates...", self)
         feedback_action = QAction("Send Feedback", self)
-        about_action = QAction("About", self)
+        about_action = QAction("About StudyMate", self)
         about_qt_action = QAction("About Qt", self)
 
-        help_menu.addActions([docs_action, check_updates_action, feedback_action])
+        help_menu.addActions([docs_action, shortcuts_action, check_updates_action, feedback_action])
         help_menu.addSeparator()
         help_menu.addActions([about_action, about_qt_action])
 
@@ -145,17 +175,24 @@ class MenuBar(QMenuBar):
             "copy": self.copy_action,
             "paste": self.paste_action,
             "select_all": select_all_action,
-            "replace": replace_action,
+            "replace": find_action,
+            "summarize": summarize_action,
+            "key_points": key_points_action,
+            "mind_map": mind_map_action,
+            "export_mind_map": export_mind_map_action,
+            "study_plan": study_plan_action,
             "zoom_in": zoom_in_action,
             "zoom_out": zoom_out_action,
             "reset_zoom": reset_zoom_action,
             "fullscreen": fullscreen_action,
             "toggle_sidebar": toggle_sidebar_action,
             "toggle_statusbar": toggle_statusbar_action,
+            "preview": preview_action,
             "dark_mode": dark_mode_action,
             "docs": docs_action,
+            "shortcuts": shortcuts_action,
             "check_updates": check_updates_action,
             "feedback": feedback_action,
             "about": about_action,
-            "about_qt": about_qt_action
+            "about_qt": about_qt_action,
         }
