@@ -126,7 +126,7 @@ Transformer models
 
 ### Built With
 
-`PyQt5` • `PyMuPDF` • `pypdf` • `python-docx` • `odfpy` • `Hugging Face transformers` • `torch` • `networkx` • `matplotlib` • `pytest`/`pytest-qt` • `ruff`/`black`/`mypy`
+`PyQt5` • `Pygments` • `PyMuPDF` • `pypdf` • `python-docx` • `odfpy` • `Hugging Face transformers` • `torch` • `networkx` • `matplotlib` • `pytest`/`pytest-qt` • `ruff`/`black`/`mypy`
 
 ---
 
@@ -232,13 +232,17 @@ See [System Demonstration](#system-demonstration) — real outputs from `sshleif
 
 ## Features
 
-- Multi-tab editor with find/replace (wrap-around), word-wrap, zoom, `Ctrl+F`, dark/light theme
-- PDF viewer with `Previous/Next`, page spinbox, `Zoom In/Out/Reset/Fit Width` (PyMuPDF)
+- Professional UI: complete light/dark design system, quick-action toolbar, card-based sidebar, app icon, live document statistics
+- Multi-tab code editor with line numbers, current-line highlight, grammar-based (Pygments) highlighting for 20+ languages, bracket matching, auto-indent, find/replace with match count (`Ctrl+F`), word-wrap, zoom and dark/light themes
+- Live markdown preview dock (`Ctrl+Shift+M`) with theme-aware typography and fenced code blocks
+- Recent files menu, drag-and-drop file opening, window geometry/sidebar/preview state restored on launch
+- PDF viewer with `Previous/Next`, page spinbox, keyboard paging, `Ctrl+wheel` zoom, `Zoom In/Out/Reset/Fit Width` (PyMuPDF)
 - File registry: `.txt/.md/.markdown/.py/.docx/.odt/.pdf/.json/.png` with binary filter toggle (“Show all files”)
-- AI: `Summarize` (Short/Medium/Long length), `Get Key Points`, `Generate Mind Map` + preview + `Export PNG`
+- AI: `Summarize` (Short/Medium/Long length), `Get Key Points`, `Generate Mind Map` + preview + `Export PNG`, copy/insert result into the note
 - External AI launchers: Gemini / ChatGPT / Copilot via `QDesktopServices` with error guard
-- Scheduler: add via `Enter`, double-click to edit, priority `low/medium/high` combo, `✕` delete, `Clear Scheduler` with confirmation, JSON persistence
+- Scheduler: add via `Enter`, double-click to edit, priority `low/medium/high`, filters (All/Active/Done), priority sorting, progress bar, clear completed, JSON persistence
 - Settings: theme, font family/size, sidebar width/font-size, word-wrap — all persisted
+- Help: keyboard shortcut reference (`Ctrl+/`), threaded update check (no UI freeze)
 - System: `libreoffice` ODT→PDF with 60s timeout, `QThreadPool` workers, graceful `QSettings` `type=None` fix
 
 ---
@@ -441,9 +445,16 @@ Offline, zero-cost, privacy. `sshleifer/distilbart-cnn-6-6` is 6-layer distilled
 │   ├── side_bar.py       # Explorer/AI/Scheduler/Settings tabs
 │   ├── scheduler_tab.py  # JSON persistence, edit/delete
 │   ├── task_widget.py    # checkbox + priority + edit/delete signals
-│   ├── pdf_viewer.py     # fitz + cleanup() on removeTab
-│   ├── styles.py         # DARK_STYLESHEET (extracted)
-│   ├── theme_manager.py  # apply_dark/light/sync_ui
+│   ├── pdf_viewer.py     # fitz + cleanup() on removeTab, keyboard/zoom controls
+│   ├── code_editor.py    # gutter, Pygments highlighting, brackets, auto-indent
+│   ├── styles.py         # LIGHT + DARK design tokens and stylesheets
+│   ├── theme_manager.py  # apply/apply_dark/apply_light/sync_ui
+│   ├── toolbar.py        # quick-action toolbar
+│   ├── markdown_preview.py  # live preview dock
+│   ├── recent_files.py   # File → Open Recent persistence
+│   ├── shortcuts_dialog.py  # keyboard shortcut reference
+│   ├── update_checker.py # threaded GitHub release check
+│   ├── icons.py          # runtime-painted app icon
 │   └── ...
 ├── tests/
 │   ├── conftest.py       # fake Qt for headless runs

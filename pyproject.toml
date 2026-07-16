@@ -13,6 +13,7 @@ dependencies = [
     "torch>=2.4",
     "transformers>=4.41",
     "requests>=2.32",
+    "Pygments>=2.17",
     "matplotlib>=3.8.1",
     "networkx>=3.3",
 ]
