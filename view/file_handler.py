@@ -1,13 +1,15 @@
 import os
 import shutil
+
+from PyQt5.QtCore import QUrl
+from PyQt5.QtGui import QDesktopServices, QFont, QTextOption
 from PyQt5.QtWidgets import QFileDialog, QMessageBox, QTabWidget
-from view.pdf_viewer import PdfViewer
-from view.editor_area import EditorArea
+
 from services.file_service import FileService
 from view.document_model import DocumentModel
-from PyQt5.QtGui import QFont, QTextOption
-from PyQt5.QtCore import QUrl
-from PyQt5.QtGui import QDesktopServices
+from view.editor_area import EditorArea
+from view.pdf_viewer import PdfViewer
+
 
 class FileHandler:
     def __init__(self, main_window, file_service: FileService | None = None):
@@ -30,7 +32,13 @@ class FileHandler:
         file_path = None
         if not is_initial_tab:
             options = QFileDialog.Options()
-            file_path, _ = QFileDialog.getSaveFileName(self.main_window, "Create New File", "", "Text Files (*.txt);;Markdown Files (*.md *.markdown);;Python Files (*.py);;All Files (*)", options=options)
+            file_path, _ = QFileDialog.getSaveFileName(
+                self.main_window,
+                "Create New File",
+                "",
+                "Text Files (*.txt);;Markdown Files (*.md *.markdown);;Python Files (*.py);;All Files (*)",
+                options=options,
+            )
             if not file_path:
                 return
 
@@ -39,9 +47,10 @@ class FileHandler:
 
         try:
             if file_path:
-                with open(file_path, 'w', encoding='utf-8') as f:
+                with open(file_path, "w", encoding="utf-8"):
                     pass
                 self.sidebar.show_directory_in_explorer(file_path)
+                self._remember_file(file_path)
             self.create_new_tab(file_path)
         except Exception as e:
             self.status_bar.showMessage(f"Error creating file: {e}", 5000)
@@ -49,18 +58,26 @@ class FileHandler:
     def create_new_tab(self, file_path=None, content=""):
         """Creates a new tab with an EditorArea."""
         editor = EditorArea(file_path=file_path)
-        editor.setText(content)
+        editor.setPlainText(content)
 
         font_family = self.settings_model.editor_font_family
         font_size = self.settings_model.editor_font_size
         editor.setFont(QFont(font_family, font_size))
         word_wrap = self.settings_model.word_wrap
         editor.setWordWrapMode(QTextOption.WordWrap if word_wrap else QTextOption.NoWrap)
+        editor.document().setModified(False)
 
-        editor.document().modificationChanged.connect(lambda modified, ed=editor: self.main_window.on_modification_changed(ed, modified))
+        editor.document().modificationChanged.connect(
+            lambda modified, ed=editor: self.main_window.on_modification_changed(ed, modified)
+        )
         editor.cursorPositionChanged.connect(self.main_window.update_status_bar)
+        editor.textChanged.connect(self.main_window.update_status_bar)
+        editor.file_dropped.connect(self.open_file)
 
         editor.document_model = DocumentModel(file_path=file_path)
+
+        if hasattr(self.main_window, "on_editor_created"):
+            self.main_window.on_editor_created(editor)
 
         tab_name = os.path.basename(file_path) if file_path else editor.document_model.display_name
         index = self.tab_widget.addTab(editor, tab_name)
@@ -74,8 +91,16 @@ class FileHandler:
     def open_file(self, file_path=None):
         if not file_path:
             options = QFileDialog.Options()
-            file_path, _ = QFileDialog.getOpenFileName(self.main_window, "Open File", "", "All Files (*);;Text Files (*.txt);;Markdown Files (*.md *.markdown);;Python Files (*.py);;PDF Files (*.pdf);;Word Documents (*.docx);;OpenDocument Text (*.odt)", options=options)
-        
+            file_path, _ = QFileDialog.getOpenFileName(
+                self.main_window,
+                "Open File",
+                "",
+                "All Files (*);;Text Files (*.txt);;Markdown Files (*.md *.markdown);;"
+                "Python Files (*.py);;PDF Files (*.pdf);;Word Documents (*.docx);;"
+                "OpenDocument Text (*.odt)",
+                options=options,
+            )
+
         if file_path:
             if self.is_file_open(file_path):
                 return
@@ -85,14 +110,15 @@ class FileHandler:
         """Checks if a file is already open in a tab and focuses it if so."""
         for i in range(self.tab_widget.count()):
             editor = self.tab_widget.widget(i)
-            if editor and editor.file_path == file_path:
+            if editor and getattr(editor, "file_path", None) == file_path:
                 self.tab_widget.setCurrentIndex(i)
                 return True
         return False
 
     def load_file(self, file_path):
         try:
-            if file_path.lower().endswith('.pdf'):
+            lower_path = file_path.lower()
+            if lower_path.endswith(".pdf"):
                 msg_box = QMessageBox(self.main_window)
                 msg_box.setIcon(QMessageBox.Question)
                 msg_box.setText("How would you like to open this PDF?")
@@ -100,7 +126,9 @@ class FileHandler:
                 msg_box.setWindowTitle("Open PDF")
 
                 open_in_app_button = msg_box.addButton("Open in App", QMessageBox.AcceptRole)
-                open_externally_button = msg_box.addButton("Use Default PDF Reader", QMessageBox.ApplyRole)
+                open_externally_button = msg_box.addButton(
+                    "Use Default PDF Reader", QMessageBox.ApplyRole
+                )
                 msg_box.addButton(QMessageBox.Cancel)
 
                 msg_box.exec_()
@@ -108,16 +136,21 @@ class FileHandler:
 
                 if clicked_button == open_in_app_button:
                     self.create_new_pdf_tab(file_path)
-                    self.status_bar.showMessage(f"Successfully loaded {os.path.basename(file_path)}", 5000)
+                    self.status_bar.showMessage(
+                        f"Successfully loaded {os.path.basename(file_path)}", 5000
+                    )
+                    self._remember_file(file_path)
                 elif clicked_button == open_externally_button:
                     QDesktopServices.openUrl(QUrl.fromLocalFile(file_path))
                 return
 
-            if file_path.lower().endswith('.odt'):
+            if lower_path.endswith(".odt"):
                 msg_box = QMessageBox(self.main_window)
                 msg_box.setIcon(QMessageBox.Question)
                 msg_box.setText("How would you like to open this ODT file?")
-                msg_box.setInformativeText("Opening in the app will convert it to a PDF for viewing.")
+                msg_box.setInformativeText(
+                    "Opening in the app will convert it to a PDF for viewing."
+                )
                 msg_box.setWindowTitle("Open ODT")
 
                 open_in_app_button = msg_box.addButton("Open in App", QMessageBox.AcceptRole)
@@ -131,30 +164,44 @@ class FileHandler:
                     pdf_path = self.file_service.convert_odt_to_pdf(file_path)
                     if pdf_path:
                         self.create_new_pdf_tab(pdf_path, is_temporary=True)
-                        self.status_bar.showMessage(f"Successfully converted {os.path.basename(file_path)} to PDF.", 5000)
+                        self.status_bar.showMessage(
+                            f"Successfully converted {os.path.basename(file_path)} to PDF.", 5000
+                        )
                     else:
-                        QMessageBox.critical(self.main_window, "Conversion Error", "Could not convert ODT to PDF. Ensure LibreOffice is installed and try again.")
+                        QMessageBox.critical(
+                            self.main_window,
+                            "Conversion Error",
+                            "Could not convert ODT to PDF. Ensure LibreOffice is installed and try again.",
+                        )
                 elif clicked_button == open_externally_button:
                     QDesktopServices.openUrl(QUrl.fromLocalFile(file_path))
                 return
 
             content = self.file_service.read_file(file_path)
             self.create_new_tab(file_path, content)
-            self.status_bar.showMessage(f"Successfully loaded {os.path.basename(file_path)}", 5000)
+            self.status_bar.showMessage(
+                f"Successfully loaded {os.path.basename(file_path)}", 5000
+            )
             self.sidebar.show_directory_in_explorer(file_path)
+            self._remember_file(file_path)
         except FileNotFoundError as e:
             QMessageBox.critical(self.main_window, "File not found", str(e))
             self.status_bar.showMessage("Selected file was not found.", 5000)
         except Exception as e:
-            QMessageBox.critical(self.main_window, "File load error", f"Failed to load {os.path.basename(file_path)}:\n{e}")
+            QMessageBox.critical(
+                self.main_window,
+                "File load error",
+                f"Failed to load {os.path.basename(file_path)}:\n{e}",
+            )
             self.status_bar.showMessage("Failed to load file.", 5000)
-
 
     def create_new_pdf_tab(self, file_path, is_temporary=False):
         """Creates a new tab with a PdfViewer."""
         viewer = PdfViewer(file_path=file_path)
         viewer.is_temporary_file = is_temporary
-        viewer.document_model = DocumentModel(file_path=file_path, is_temporary=is_temporary, is_pdf=True)
+        viewer.document_model = DocumentModel(
+            file_path=file_path, is_temporary=is_temporary, is_pdf=True
+        )
         tab_name = os.path.basename(file_path)
         index = self.tab_widget.addTab(viewer, tab_name)
         self.tab_widget.setTabToolTip(index, file_path)
@@ -168,12 +215,12 @@ class FileHandler:
 
     def close_all_files(self):
         """Closes all open tabs, prompting for unsaved changes for each."""
-        # Iterate backwards to avoid index shifting issues as tabs are removed.
-        for i in range(self.tab_widget.count() - 1, -1, -1):
-            # close_tab returns False if the user cancels the close operation
-            if not self.close_tab(i):
-                return False
-        return True
+        # Iterate backwards to avoid index shifting as tabs are removed.
+        # close_tab returns False if the user cancels the close operation.
+        return all(
+            self.close_tab(index)
+            for index in range(self.tab_widget.count() - 1, -1, -1)
+        )
 
     def close_tab(self, index):
         editor_widget = self.tab_widget.widget(index)
@@ -191,8 +238,14 @@ class FileHandler:
 
         # Check for modifications only if it's an editor
         if isinstance(editor_widget, EditorArea) and editor_widget.document().isModified():
-            file_name = self.tab_widget.tabText(index).replace('*', '')
-            reply = QMessageBox.question(self.main_window, 'Save Changes?', f"Do you want to save the changes you made to '{file_name}'?", QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel, QMessageBox.Save)
+            file_name = self.tab_widget.tabText(index).replace("*", "")
+            reply = QMessageBox.question(
+                self.main_window,
+                "Save Changes?",
+                f"Do you want to save the changes you made to '{file_name}'?",
+                QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
+                QMessageBox.Save,
+            )
             if reply == QMessageBox.Save:
                 if not self.save_file(index=index):
                     return False
@@ -201,7 +254,7 @@ class FileHandler:
 
         self.tab_widget.removeTab(index)
         editor_widget.deleteLater()
-        
+
         # If the last tab was closed, open a new empty one
         if self.tab_widget.count() == 0:
             self.new_file(is_initial_tab=True)
@@ -209,16 +262,22 @@ class FileHandler:
         return True
 
     def save_file(self, index=None):
-        if index is None: index = self.tab_widget.currentIndex()
+        if index is None:
+            index = self.tab_widget.currentIndex()
         editor = self.tab_widget.widget(index)
-        if not editor: return False
+        if not editor:
+            return False
 
-        if editor.file_path:
+        editor_path = getattr(editor, "file_path", None)
+        if editor_path:
             try:
-                self.file_service.save_text_file(editor.file_path, editor.toPlainText())
+                self.file_service.save_text_file(editor_path, editor.toPlainText())
                 editor.document().setModified(False)
+                self._remember_file(editor_path)
                 if index == self.tab_widget.currentIndex():
-                    self.status_bar.showMessage(f"Saved to {os.path.basename(editor.file_path)}", 3000)
+                    self.status_bar.showMessage(
+                        f"Saved to {os.path.basename(editor_path)}", 3000
+                    )
                 return True
             except Exception as e:
                 self.status_bar.showMessage(f"Error saving file: {e}", 5000)
@@ -227,19 +286,33 @@ class FileHandler:
             return self.save_file_as(index=index)
 
     def save_file_as(self, index=None):
-        if index is None: index = self.tab_widget.currentIndex()
+        if index is None:
+            index = self.tab_widget.currentIndex()
         editor = self.tab_widget.widget(index)
-        if not editor: return False
+        if not editor:
+            return False
 
         current_name = os.path.basename(editor.file_path) if editor.file_path else ""
-        file_path, _ = QFileDialog.getSaveFileName(self.main_window, "Save File As", current_name, "Text Files (*.txt);;Markdown Files (*.md);;All Files (*)", options=QFileDialog.Options())
-        
+        file_path, _ = QFileDialog.getSaveFileName(
+            self.main_window,
+            "Save File As",
+            current_name,
+            "Text Files (*.txt);;Markdown Files (*.md);;All Files (*)",
+            options=QFileDialog.Options(),
+        )
+
         if file_path:
             editor.file_path = file_path
-            if hasattr(editor, 'document_model'):
+            if hasattr(editor, "set_file_path"):
+                editor.set_file_path(file_path)
+            if hasattr(editor, "document_model"):
                 editor.document_model.update_path(file_path)
             self.tab_widget.setTabText(index, os.path.basename(file_path))
             self.tab_widget.setTabToolTip(index, file_path)
             self.main_window.update_window_title()
             return self.save_file(index=index)
         return False
+
+    def _remember_file(self, file_path):
+        if hasattr(self.main_window, "remember_recent_file"):
+            self.main_window.remember_recent_file(file_path)
