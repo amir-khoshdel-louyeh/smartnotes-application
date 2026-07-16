@@ -1,7 +1,9 @@
-import networkx as nx
-import matplotlib.pyplot as plt
 from io import BytesIO
+
+import matplotlib.pyplot as plt
+import networkx as nx
 from PyQt5.QtGui import QPixmap
+
 
 def parse_indented_text(text: str):
     """

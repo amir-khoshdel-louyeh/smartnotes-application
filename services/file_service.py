@@ -23,7 +23,7 @@ class FileService:
         return reader(file_path)
 
     def read_text_file(self, file_path: str) -> str:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, encoding='utf-8') as f:
             return f.read()
 
     def read_docx(self, file_path: str) -> str:
@@ -32,7 +32,7 @@ class FileService:
         return "\n".join(para.text for para in doc.paragraphs)
 
     def read_odt(self, file_path: str) -> str:
-        from odf import text, teletype
+        from odf import teletype, text
         from odf.opendocument import load as load_odt
 
         document = load_odt(file_path)

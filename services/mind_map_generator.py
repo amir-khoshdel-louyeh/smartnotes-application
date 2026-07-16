@@ -1,10 +1,10 @@
 try:
-    from transformers import pipeline, Pipeline
+    from transformers import Pipeline, pipeline
 except ImportError:  # transformers not installed in lightweight envs
     pipeline = None
     Pipeline = object  # type: ignore
 
-from PyQt5.QtCore import QObject, pyqtSignal, QRunnable
+from PyQt5.QtCore import QObject, QRunnable, pyqtSignal
 
 
 class MindMapService(QObject):

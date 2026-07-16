@@ -9,7 +9,7 @@ class SearchService:
         if not query or not query.strip():
             return False
 
-        from PyQt5.QtGui import QTextDocument, QTextCursor
+        from PyQt5.QtGui import QTextCursor, QTextDocument
 
         flags = QTextDocument.FindFlags()
         if case_sensitive:
@@ -26,7 +26,7 @@ class SearchService:
         if not query or not query.strip():
             return False
 
-        from PyQt5.QtGui import QTextDocument, QTextCursor
+        from PyQt5.QtGui import QTextCursor, QTextDocument
 
         flags = QTextDocument.FindFlags() | QTextDocument.FindBackward
         if case_sensitive:
@@ -52,6 +52,14 @@ class SearchService:
                 return True
 
         return SearchService.find_next(editor, query, case_sensitive) and SearchService.replace_current(editor, query, replace_text, case_sensitive)
+
+    @staticmethod
+    def count_matches(text, query, case_sensitive=False):
+        """Count non-overlapping occurrences of ``query`` in ``text``."""
+        if not query:
+            return 0
+        flags = 0 if case_sensitive else re.IGNORECASE
+        return len(re.findall(re.escape(query), text or "", flags=flags))
 
     @staticmethod
     def replace_all(text, query, replace_text, case_sensitive=False):
