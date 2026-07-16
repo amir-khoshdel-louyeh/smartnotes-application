@@ -1,8 +1,8 @@
-import unittest
-from unittest.mock import MagicMock, patch
+import json
 import os
 import tempfile
-import json
+import unittest
+from unittest.mock import MagicMock, patch
 
 from view.scheduler_tab import SchedulerTab
 

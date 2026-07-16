@@ -1,20 +1,34 @@
+from contextlib import suppress
+
 import fitz  # PyMuPDF
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel, QHBoxLayout, QScrollArea, QSpinBox
-from PyQt5.QtGui import QPixmap, QImage
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtGui import QImage, QPixmap
+from PyQt5.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QScrollArea,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
+)
+
 
 class PdfViewer(QWidget):
-    """
-    A widget for displaying PDF files.
-    It renders pages as images and provides navigation and zoom controls.
-    """
+    """Displays PDF pages as images with navigation and zoom controls."""
+
+    MIN_ZOOM = 0.25
+    MAX_ZOOM = 5.0
+
     def __init__(self, file_path, parent=None):
         super().__init__(parent)
         self.file_path = file_path
         self.is_pdf_viewer = True  # Flag to identify this widget type
-        self.is_temporary_file = False # Flag for converted files
+        self.is_temporary_file = False  # Flag for converted files
         self.zoom_factor = 1.0
         self.current_page = 0
+        self._auto_fitted = False
 
         self.document = None
         try:
@@ -29,51 +43,73 @@ class PdfViewer(QWidget):
     def setup_error_ui(self, message):
         layout = QVBoxLayout(self)
         error_label = QLabel(message)
-        error_label.setAlignment(Qt.AlignCenter)
         error_label.setWordWrap(True)
+        error_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(error_label)
 
     def setup_ui(self):
-        # --- Image Display ---
+        # --- Image display ---
         self.image_label = QLabel()
         self.image_label.setAlignment(Qt.AlignCenter)
+        self.image_label.setStyleSheet("background: transparent;")
 
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setWidget(self.image_label)
+        self.scroll_area.setFrameShape(QFrame.NoFrame)
 
-        # --- Navigation Controls ---
-        self.nav_bar = QWidget()
+        # --- Navigation controls ---
+        self.nav_bar = QFrame()
+        self.nav_bar.setObjectName("PdfNavBar")
         nav_layout = QHBoxLayout(self.nav_bar)
-        nav_layout.setContentsMargins(8, 5, 8, 5)
+        nav_layout.setContentsMargins(10, 6, 10, 6)
+        nav_layout.setSpacing(6)
 
         self.prev_button = QPushButton("Previous")
+        self.prev_button.setObjectName("Ghost")
+        self.prev_button.setToolTip("Previous page (Page Up)")
         self.next_button = QPushButton("Next")
+        self.next_button.setObjectName("Ghost")
+        self.next_button.setToolTip("Next page (Page Down)")
+
         self.page_input = QSpinBox()
         self.page_input.setRange(1, self.document.page_count)
+        self.page_input.setFixedWidth(64)
+        self.page_input.setToolTip("Jump to page")
         self.page_label = QLabel(f"/ {self.document.page_count}")
-        
-        self.zoom_in_button = QPushButton("Zoom In")
-        self.zoom_out_button = QPushButton("Zoom Out")
-        self.zoom_reset_button = QPushButton("Reset Zoom")
-        self.fit_width_button = QPushButton("Fit Width")
+        self.page_label.setObjectName("Hint")
+
+        self.zoom_in_button = QPushButton("+")
+        self.zoom_in_button.setObjectName("IconButton")
+        self.zoom_in_button.setFixedSize(26, 26)
+        self.zoom_in_button.setToolTip("Zoom in (Ctrl + wheel)")
+        self.zoom_out_button = QPushButton("−")
+        self.zoom_out_button.setObjectName("IconButton")
+        self.zoom_out_button.setFixedSize(26, 26)
+        self.zoom_out_button.setToolTip("Zoom out (Ctrl + wheel)")
+        self.zoom_reset_button = QPushButton("Reset")
+        self.zoom_reset_button.setObjectName("Ghost")
+        self.zoom_reset_button.setToolTip("Reset zoom (Ctrl+0)")
+        self.fit_width_button = QPushButton("Fit width")
+        self.fit_width_button.setObjectName("Ghost")
         self.zoom_label = QLabel()
+        self.zoom_label.setObjectName("Hint")
+        self.zoom_label.setMinimumWidth(74)
 
         nav_layout.addWidget(self.prev_button)
         nav_layout.addWidget(self.next_button)
-        nav_layout.addSpacing(10)
-        nav_layout.addWidget(QLabel("Page:"))
+        nav_layout.addSpacing(8)
+        nav_layout.addWidget(QLabel("Page"))
         nav_layout.addWidget(self.page_input)
         nav_layout.addWidget(self.page_label)
         nav_layout.addStretch()
         nav_layout.addWidget(self.zoom_label)
-        nav_layout.addSpacing(10)
         nav_layout.addWidget(self.zoom_out_button)
         nav_layout.addWidget(self.zoom_in_button)
         nav_layout.addWidget(self.zoom_reset_button)
         nav_layout.addWidget(self.fit_width_button)
 
-        # --- Connect Signals ---
+        # --- Connect signals ---
         self.page_input.valueChanged.connect(self.jump_to_page)
         self.prev_button.clicked.connect(self.go_to_previous_page)
         self.next_button.clicked.connect(self.go_to_next_page)
@@ -82,20 +118,29 @@ class PdfViewer(QWidget):
         self.zoom_reset_button.clicked.connect(self.reset_zoom)
         self.fit_width_button.clicked.connect(self.fit_to_width)
 
-        # --- Main Layout ---
+        # --- Main layout ---
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
         main_layout.addWidget(self.nav_bar)
         main_layout.addWidget(self.scroll_area)
 
+        self.setFocusPolicy(Qt.StrongFocus)
+
     def render_page(self):
+        if self.document is None:
+            return
+        if self.current_page < 0:
+            self.current_page = 0
+        self.current_page = min(self.current_page, self.document.page_count - 1)
+
         page = self.document.load_page(self.current_page)
-        mat = fitz.Matrix(self.zoom_factor, self.zoom_factor)
-        pix = page.get_pixmap(matrix=mat)
-        image = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format_RGB888)
-        pixmap = QPixmap.fromImage(image)
-        self.image_label.setPixmap(pixmap)
+        matrix = fitz.Matrix(self.zoom_factor, self.zoom_factor)
+        pix = page.get_pixmap(matrix=matrix, alpha=False)
+        image = QImage(
+            pix.samples, pix.width, pix.height, pix.stride, QImage.Format_RGB888
+        ).copy()
+        self.image_label.setPixmap(QPixmap.fromImage(image))
 
         # Update UI elements
         self.page_input.blockSignals(True)
@@ -120,41 +165,82 @@ class PdfViewer(QWidget):
             self.current_page += 1
             self.render_page()
 
-    def zoom_in(self):
-        self.zoom_factor *= 1.2
+    def _set_zoom(self, factor):
+        self.zoom_factor = max(self.MIN_ZOOM, min(self.MAX_ZOOM, factor))
         self.render_page()
+
+    def zoom_in(self):
+        self._set_zoom(self.zoom_factor * 1.2)
 
     def zoom_out(self):
-        self.zoom_factor /= 1.2
-        self.render_page()
+        self._set_zoom(self.zoom_factor / 1.2)
 
     def reset_zoom(self):
-        self.zoom_factor = 1.0
-        self.render_page()
+        self._set_zoom(1.0)
 
     def fit_to_width(self):
+        if self.document is None:
+            return
         page = self.document.load_page(self.current_page)
         page_width = page.rect.width
-        scroll_area_width = self.scroll_area.width() - 2 * self.scroll_area.frameWidth()
-        # Subtract scrollbar width if visible
-        if self.scroll_area.verticalScrollBar().isVisible():
-            scroll_area_width -= self.scroll_area.verticalScrollBar().width()
-        self.zoom_factor = scroll_area_width / page_width
+        scroll_area_width = self.scroll_area.viewport().width()
+        if scroll_area_width <= 1:
+            return
+        self.zoom_factor = max(
+            self.MIN_ZOOM, min(self.MAX_ZOOM, scroll_area_width / page_width)
+        )
         self.render_page()
+        self._auto_fitted = True
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if not self._auto_fitted:
+            QTimer.singleShot(60, self.fit_to_width)
+
+    def keyPressEvent(self, event):
+        if event.key() in (Qt.Key_PageDown, Qt.Key_Right, Qt.Key_Space):
+            self.go_to_next_page()
+            return
+        if event.key() in (Qt.Key_PageUp, Qt.Key_Left):
+            self.go_to_previous_page()
+            return
+        if event.key() == Qt.Key_Home:
+            self.current_page = 0
+            self.render_page()
+            return
+        if event.key() == Qt.Key_End:
+            self.current_page = self.document.page_count - 1
+            self.render_page()
+            return
+        if event.modifiers() & Qt.ControlModifier:
+            if event.key() in (Qt.Key_Plus, Qt.Key_Equal):
+                self.zoom_in()
+                return
+            if event.key() == Qt.Key_Minus:
+                self.zoom_out()
+                return
+            if event.key() == Qt.Key_0:
+                self.reset_zoom()
+                return
+        super().keyPressEvent(event)
+
+    def wheelEvent(self, event):
+        if event.modifiers() & Qt.ControlModifier:
+            if event.angleDelta().y() > 0:
+                self.zoom_in()
+            else:
+                self.zoom_out()
+            event.accept()
+            return
+        super().wheelEvent(event)
 
     def closeEvent(self, event):
-        if getattr(self, "document", None) is not None:
-            try:
-                self.document.close()
-            except Exception:
-                pass
+        self.cleanup()
         super().closeEvent(event)
 
     def cleanup(self):
         """Explicit cleanup for FileHandler.removeTab path where closeEvent isn't sent."""
         if getattr(self, "document", None) is not None:
-            try:
+            with suppress(Exception):
                 self.document.close()
-            except Exception:
-                pass
             self.document = None

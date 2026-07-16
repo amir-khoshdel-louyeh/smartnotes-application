@@ -1,6 +1,7 @@
-from PyQt5.QtCore import QObject, pyqtSignal, QRunnable
-from services.summarizer import SummarizerService
+from PyQt5.QtCore import QObject, QRunnable, pyqtSignal
+
 from services.key_points_extractor import KeyPointsService
+from services.summarizer import SummarizerService
 
 
 class AIWorkerSignals(QObject):

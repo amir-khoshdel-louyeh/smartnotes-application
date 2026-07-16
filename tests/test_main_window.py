@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 
 try:
     from PyQt5.QtWidgets import QApplication
+
     from view.main_window import MainWindow
     PYQT_AVAILABLE = True
 except ImportError:

@@ -2,6 +2,7 @@ import sys
 import types
 from unittest.mock import MagicMock
 
+
 def _ensure_fake_qt():
     try:
         import PyQt5.QtCore  # noqa: F401
@@ -77,10 +78,17 @@ def _ensure_fake_qt():
         fake_widgets = types.ModuleType("PyQt5.QtWidgets")
         class FakeQWidget:
             def __init__(self, *a, **kw): pass
-        class FakeQLineEdit(FakeQWidget): pass
-        class FakeQPushButton(FakeQWidget): pass
-        class FakeQListWidget(FakeQWidget): 
-            def __init__(self, *a, **kw): super().__init__(*a, **kw); self.clear = MagicMock()
+        class FakeQLineEdit(FakeQWidget):
+            pass
+
+        class FakeQPushButton(FakeQWidget):
+            pass
+
+        class FakeQListWidget(FakeQWidget):
+            def __init__(self, *a, **kw):
+                super().__init__(*a, **kw)
+                self.clear = MagicMock()
+
         class FakeQListWidgetItem:
             def __init__(self, *a, **kw): pass
         class FakeQVBoxLayout:
@@ -88,7 +96,12 @@ def _ensure_fake_qt():
         class FakeQHBoxLayout:
             def __init__(self, *a, **kw): pass
         class FakeQMessageBox:
-            Yes = 1; No = 2; Save=1; Discard=2; Cancel=3
+            Yes = 1
+            No = 2
+            Save = 1
+            Discard = 2
+            Cancel = 3
+
             @staticmethod
             def question(*a, **kw): return FakeQMessageBox.No
             @staticmethod

@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from services.graph_visualizer import parse_indented_text, create_mind_map_pixmap  # noqa: E402
+from services.graph_visualizer import create_mind_map_pixmap, parse_indented_text  # noqa: E402
 
 
 class TestGraphVisualizer(unittest.TestCase):
