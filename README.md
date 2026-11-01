@@ -1,590 +1,134 @@
-# StudyMate — SmartNotes Application
+# StudyMate — SmartNotes Desktop
 
-> Lightweight PyQt5 desktop for study notes with local Hugging Face summarization, key-phrase extraction and mind-map visualization.
+A local-first study workspace for reading notes and PDFs, summarising them, extracting key points and turning them into mind maps — with no API keys and no document leaving the machine.
 
-***Portfolio Project*** *— Demonstrates local LLM inference orchestration, Qt threading & service-layer architecture, lazy model loading, and graph visualization with CI-guarded quality.*
+![StudyMate AI sidebar](assets/ai.png)
 
-![Python](https://img.shields.io/badge/Python-3.11+-blue?style=flat-square) ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square) ![Status](https://img.shields.io/badge/Status-Active-success?style=flat-square) ![Tests](https://img.shields.io/badge/Tests-31_passed-brightgreen?style=flat-square) ![Coverage](https://img.shields.io/badge/Coverage-services_92%25-blue?style=flat-square)
+`Python 3.11+` · `PyQt5` · `Hugging Face Transformers` · Desktop application · Working prototype
 
----
+## At a glance
 
-## Table of Contents
-
-- [System Demonstration](#system-demonstration)
-- [Why This Project Matters](#why-this-project-matters)
-- [Overview](#overview)
-- [Problem Statement](#problem-statement)
-- [Solution Approach](#solution-approach)
-- [Demo](#demo)
-- [Features](#features)
-- [Results & Metrics](#results--metrics)
-- [Architecture](#architecture)
-- [Engineering Decisions](#engineering-decisions)
-- [Challenges & Lessons Learned](#challenges--lessons-learned)
-- [Repository Structure](#repository-structure)
-- [Getting Started](#getting-started)
-- [Testing & Verification](#testing--verification)
-- [Future Improvements](#future-improvements)
-- [Author](#author)
-
----
-
-## System Demonstration
-
-### System Workflow
-
-```text
-[User Input: .txt/.md/.py/.docx/.odt/.pdf]
-        │
-        ▼
-[MainWindow + SideBar + Tabbed Editor (PyQt5)]
-        │
-        ├──► FileService — reader registry, ODT→PDF via LibreOffice
-        ├──► SearchService — find/replace with wrap-around
-        └──► SettingsManager/Model — QSettings persistence
-        │
-        ▼
-[AI Workers (QThreadPool, non-blocking)]
-        │
-        ├──► SummarizerService — sshleifer/distilbart-cnn-6-6, chunked (600w) + truncation
-        ├──► KeyPointsService — ml6team/keyphrase-extraction-kbir-inspec, B-KEY filter
-        └──► MindMapService — summarizer → indented list → GraphVisualizer
-        │
-        ▼
-[Rendering]
-        │
-        ├──► EditorArea (QTextEdit) — summary/key-points/mind-map text
-        ├──► GraphVisualizer — networkx DiGraph + matplotlib → QPixmap
-        └──► PdfViewer — PyMuPDF (fitz) pixmap with zoom/fit
-        │
-        ▼
-[Persistence & Export]
-        │
-        ├──► SchedulerTab — JSON via QStandardPaths (StudyMate/scheduler_tasks.json)
-        ├──► QPrinter — export editor → PDF
-        └──► Mind-map → PNG export
-```
-
-### Application Screenshots
-
-> All images live in `assets/` (source captures) and `docs/screenshots/` (contributor placeholders). Below are full-size captures from the current build (Fedora, offscreen 796×596).
-
-#### AI Tools — Summarize / Key Points / Mind Map
-![AI Sidebar](assets/ai.png)
-*AI tab with `Summary Length` selector, `Summarize`, `Get Key Points`, `Generate Mind Map` and `Launch External AI` (Gemini / ChatGPT / Copilot). Output appears in `Summary will appear here...` `QTextEdit`, mind-map preview (`QLabel` `QPixmap`) and `Export PNG` button are shown after generation.*
-
-#### File Explorer — Filtered Model & Tabs
-![Explorer](assets/explore.png)
-*Explorer uses `QFileSystemModel.setNameFilters` (`*.txt, *.md, *.py, *.pdf, *.docx, *.odt`) with `Show all files` toggle. Toolbar icons are now full-size (`actualSize(self.sizeHint())`), top bar shows `test` / `test2*` tabs with close buttons.*
-
-#### Scheduler — Priority, Edit & Delete
-![Scheduler](assets/scheduler.png)
-*Scheduler with `Add a new task and press Enter...`, task row shows checkbox, priority `low ▼` combo, `✕` delete. Double-click title to inline-edit (`QLineEdit`), `Clear Scheduler` with `QMessageBox` guard. Persistence via `QStandardPaths` JSON.*
-
-#### Settings & Editor — Theme & Typography
-![Settings](assets/setting.png)
-*Settings `Appearance` group: `Theme: Light/Dark`, `Editor Font: Noto Sans Mono`, `Font Size: 11`, `Sidebar Width: 811` with `+/-`, `Sidebar Font Size: 10`, `Enable Word Wrap`. Editor shows `This is a test example.` with `Ln 1, Col 24 | Words: 5` status.*
-
-### Example Output
-
-**Summarize (Medium, 230 words → 2 chunks):**
-```text
-Machine learning enables computers to learn from data without explicit programming.
-Supervised learning uses labeled examples to predict outcomes, while unsupervised
-finds hidden patterns. Transformer models like DistilBART compress long texts by
-selecting salient sentences, here chunked at 600 words with truncation to avoid
-1024-token limits...
-
-— via SummarizerService.summarize(..., "Medium")
-```
-
-**Key Points:**
-```text
-- transformer (Score: 0.98)
-- summarization (Score: 0.96)
-- unsupervised (Score: 0.91)
-```
-
-**Mind Map (indented → graph):**
-```text
-Transformer models
-  - DistilBART summarization
-  - Token limits and chunking
-  - Graph visualization
-    - networkx DiGraph
-    - matplotlib spring_layout
-```
-
-### Highlights
-
-- **Tabbed editor** with find/replace, word-wrap, zoom, dark/light themes persisted via `QSettings`.
-- **Local AI** — no API key: summarization, key-phrase extraction and mind-map run in `QThreadPool` workers (`view/ai_workers.py:11`, `services/mind_map_generator.py:29`).
-- **Chunk-aware** — long texts split at 600 words, `truncation=True`, max 150 tokens to stay inside model limits.
-- **Mind-map wired** — `Generate Mind Map` button → indented list → `services/graph_visualizer.py:6` `parse_indented_text` → `create_mind_map_pixmap` (dark-aware) → preview + `Export PNG`.
-- **Scheduler DNA** — add/edit/delete, priority combo, status persistence to `QStandardPaths/AppDataLocation/scheduler_tasks.json`.
-- **Quality gated** — `pytest` 31 tests, `pytest-qt`+`xvfb`, `ruff`/`black`/`mypy`, `pip-audit`, `dependabot`, `pre-commit`.
-
-### Built With
-
-`PyQt5` • `Pygments` • `PyMuPDF` • `pypdf` • `python-docx` • `odfpy` • `Hugging Face transformers` • `torch` • `networkx` • `matplotlib` • `pytest`/`pytest-qt` • `ruff`/`black`/`mypy`
-
----
-
-## Why This Project Matters
-
-Students juggle notes in Notion/Obsidian, PDFs in a reader, TODOs in another app and AI in a browser tab. Context-switching kills focus. Existing note apps either require cloud APIs (cost/privacy) or lack study-specific helpers (summarize, extract key points, mind-map).
-
-This project explores **local-first AI assistance** inside a native desktop: small distilled models run on CPU, no data leaves the machine, and the service layer stays testable without Qt. The mind-map bridges text → graph, turning linear notes into a visual memory aid — a pattern reusable for any document-to-structure task.
-
-**Concepts showcased:**
-- Lazy model loading & chunked inference for 1024-token transformers
-- Service–View separation (`services/` vs `view/`) for unit-testable AI logic
-- Qt threading (`QThreadPool`/`QRunnable`) to keep UI responsive
-- Graph construction from indented text + `matplotlib` → `QPixmap` rendering
-
----
+| | |
+|---|---|
+| **Problem** | Study material is split across editors, PDF readers, task lists and browser-based AI tools |
+| **Approach** | Native PyQt5 workspace with local distilled transformer models and a testable service layer |
+| **Formats** | `.txt`, `.md`, `.py`, `.docx`, `.odt`, `.pdf` |
+| **AI features** | Summarisation, key-phrase extraction, mind-map generation (DistilBART + KBIR) |
+| **Tests** | **45 passed** (`pytest`, headless Qt) |
+| **Privacy** | No cloud AI; inference runs on the local CPU |
+| **Role** | Solo — architecture, UI, services, tests, packaging |
 
 ## Overview
 
-StudyMate is a 1400×900 `QMainWindow` with a west-tabbed `SideBar` (Explore / AI / Scheduler / Settings) and a central `QTabWidget` editor. Opening a file routes through `FileService`’s reader registry (`.txt/.md/.py/.docx/.odt/.pdf`), ODT is converted headlessly via `libreoffice` with timeout and temp-dir cleanup. AI actions are dispatched to workers; results stream back via `pyqtSignal` to the sidebar’s `QTextEdit` and `QLabel` preview. Settings (theme, font, width, word-wrap) round-trip through `SettingsManager` (`QSettings`) and `SettingsModel`. Detailed flow is in [Architecture](#architecture).
+StudyMate combines a tabbed editor, PDF viewer, file explorer, scheduler and AI sidebar in one desktop window. Its distinguishing choice is local inference: a distilled BART summariser and a KBIR key-phrase model are loaded lazily and run through a `QThreadPool`, so the interface stays responsive while a model is working and no note text is sent to a third party.
 
----
+The codebase separates Qt views (`view/`) from pure-Python services (`services/`). That boundary is what makes the AI and graph logic testable without a display, and it keeps model-specific details out of the widgets.
 
-## Problem Statement
+## Screenshots
 
-**Who is affected:** students and researchers handling mixed formats (notes, papers, slides) who need quick comprehension aids.
+| AI sidebar | Editor & explorer |
+|---|---|
+| ![](assets/ai.png) | ![](assets/explore.png) |
 
-Traditional approaches suffer from:
+| Scheduler | Settings |
+|---|---|
+| ![](assets/scheduler.png) | ![](assets/setting.png) |
 
-- **Fragmented tools** — editor, PDF viewer, TODO, AI in separate windows
-- **Cloud dependency** — API keys, cost, privacy for summarization
-- **Brittle file handling** — ODT/PDF often “open externally or fail”, no registry
-- **UI freezes** — model loading on the main thread blocks the app for seconds
-
-These increase friction, break flow, and make offline study hard.
-
----
-
-## Solution Approach
-
-Local, modular desktop with a service layer that can be tested headlessly:
-
-### Presentation Layer — `view/`
-
-Qt widgets, no business logic. Delegates to services.
-
-- `MainWindow` (749 lines → slimmed via `view/styles.py` + `view/theme_manager.py`)
-- `SideBar` (Explore `QFileSystemModel` with name filters, AI tab, Scheduler, Settings)
-- `EditorArea`, `PdfViewer` (fitz pixmap, zoom, `cleanup()` on `removeTab`), `TaskWidget`
-
-### Service Layer — `services/`
-
-Pure Python, lazily imports `transformers`/`fitz`.
-
-- `FileService` — `_reader_registry()`, `convert_odt_to_pdf(timeout=60)` with `CalledProcessError`/`TimeoutExpired` handling
-- `SummarizerService` / `KeyPointsService` — `get_summarizer()`/`get_extractor()` singletons, chunking, `truncation=True`
-- `MindMapService` + `MindMapWorker` — reuses summarizer, sentence → `  - ` list
-- `GraphVisualizer` — `parse_indented_text` (root at `-1`, prunes deeper levels) + `create_mind_map_pixmap` (dark/light)
-- `SearchService`, `LifecycleService`
-
-### Persistence Layer
-
-- `SettingsManager` wraps `QSettings` (guards `type=None` edge case)
-- `SchedulerTab` JSON via `QStandardPaths.writableLocation`
-
-> Note: Data flow is documented once in [Architecture](#architecture).
-
----
-
-## Demo
-
-### Running the Application
-
-```bash
-git clone https://github.com/smartnotes-application/smartnotes-application.git
-cd smartnotes-application
-python3 -m venv .venv && source .venv/bin/activate
-pip install -U pip
-pip install -r requirements.txt          # or: pip install -e .
-pip install torch --index-url https://download.pytorch.org/whl/cpu  # slim CPU wheel, avoids 550MB CUDA
-python main.py           # or: studymate (from [project.scripts])
-# first run downloads ~300MB models from Hugging Face
-```
-
-**CPU vs CUDA:** `requirements.txt:14` is `torch>=2.4`. For low quota/disk, install CPU wheel as above; app still runs without torch (AI buttons show graceful error).
-
-### Direct Service Usage
-
-```bash
-python -c "from services.summarizer import SummarizerService; print(SummarizerService.get_summary_lengths(100))"
-QT_QPA_PLATFORM=offscreen python -c "from services.graph_visualizer import parse_indented_text; g=parse_indented_text('Root\n  - A\n  - B'); print(list(g.edges))"
-```
-
-### Configuration
-
-No `.env` needed. Optional: `Settings` tab persists to `~/.config/StudyMate/StudyMate.conf` (Linux) / registry (Windows). Scheduler tasks: `~/.local/share/StudyMate/StudyMate/scheduler_tasks.json` (via `QStandardPaths`).
-
-### Example Output
-
-See [System Demonstration](#system-demonstration) — real outputs from `sshleifer/distilbart-cnn-6-6` and `ml6team/keyphrase-extraction-kbir-inspec`.
-
----
-
-## Features
-
-- Professional UI: complete light/dark design system, quick-action toolbar, card-based sidebar, app icon, live document statistics
-- Multi-tab code editor with line numbers, current-line highlight, grammar-based (Pygments) highlighting for 20+ languages, bracket matching, auto-indent, find/replace with match count (`Ctrl+F`), word-wrap, zoom and dark/light themes
-- Live markdown preview dock (`Ctrl+Shift+M`) with theme-aware typography and fenced code blocks
-- Recent files menu, drag-and-drop file opening, window geometry/sidebar/preview state restored on launch
-- PDF viewer with `Previous/Next`, page spinbox, keyboard paging, `Ctrl+wheel` zoom, `Zoom In/Out/Reset/Fit Width` (PyMuPDF)
-- File registry: `.txt/.md/.markdown/.py/.docx/.odt/.pdf/.json/.png` with binary filter toggle (“Show all files”)
-- AI: `Summarize` (Short/Medium/Long length), `Get Key Points`, `Generate Mind Map` + preview + `Export PNG`, copy/insert result into the note
-- External AI launchers: Gemini / ChatGPT / Copilot via `QDesktopServices` with error guard
-- Scheduler: add via `Enter`, double-click to edit, priority `low/medium/high`, filters (All/Active/Done), priority sorting, progress bar, clear completed, JSON persistence
-- Settings: theme, font family/size, sidebar width/font-size, word-wrap — all persisted
-- Help: keyboard shortcut reference (`Ctrl+/`), threaded update check (no UI freeze)
-- System: `libreoffice` ODT→PDF with 60s timeout, `QThreadPool` workers, graceful `QSettings` `type=None` fix
-
----
-
-## Results & Metrics
-
-### Test Coverage
-
-![Coverage by Module](assets/charts/coverage.png)
-```text
-services/graph_visualizer.py   100% (43 stmts)
-services/mind_map_generator.py  93% (45 stmts)
-services/key_points_extractor   92%
-services/summarizer             73% (chunk path covered)
-view/scheduler_tab              50%
-TOTAL 31 passed, 9 skipped (Qt headless via fake-Qt conftest; real Qt in CI xvfb)
-```
-*Horizontal bar uses dark theme (`#1e1e1e` / `#2ed573` ≥90%, `#ffa502` ≥70%, `#ff4757` else). Full `--cov` report in `assets/charts/coverage.png`.*
-
-### AI Latency (CPU, 600-word chunk)
-
-![AI Latency](assets/charts/latency.png)
-**Latency:** summarizer ~2–5s first load (model init), ~0.8s per chunk thereafter; key-points ~0.5s; mind-map ~1s. Chunking keeps peak RAM < 1.5GB vs OOM on 2k-word naive call.
-
-### Quality Gates & Roadmap
-
-![Quality Gates](assets/charts/quality.png)
-*Left pie: 40 tests collected (31 passed 78%, 9 skipped 22% when fake-Qt). Right bar: P0 Broken/wired, P1 Tests/Quality, P2 CI/Hygiene, P3 Nice-to-have — all 100% after roadmap.*
-
-![Codebase Size](assets/charts/codebase.png)
-*Lines of code per component — `view/main_window.py` 749 (slimmed from 843 via `styles.py` + `theme_manager.py`), `services/` ~380, `tests/` ~800.*
-
-**Trade-off:** DistilBART is 306M params — fast on CPU but less abstractive than larger PEGASUS; chosen for offline demo. Swapping to `facebook/bart-large-cnn` is a one-line `pipeline(model=...)` change in `MindMapService.get_generator`.
-
----
+The AI panel offers three summary lengths, key-point extraction, mind-map generation and explicit external-AI links (Gemini / ChatGPT / Copilot) for users who prefer them. The scheduler stores tasks as JSON under `QStandardPaths`; settings (theme, font, sidebar width, word wrap) round-trip through `QSettings`.
 
 ## Architecture
 
-### High-Level Architecture
-
-UI (`view/`) is a thin shell; all I/O, AI and graph logic lives in `services/`. `MainWindow` owns `QThreadPool` and status bar, `SideBar` owns tabs, `FileHandler` owns `QTabWidget` lifecycle with `PdfViewer.cleanup()` on `removeTab`. Tests import services without Qt via `tests/conftest.py` fake-Qt shim, enabling headless CI.
-
-### System Data Flow
-
 ```text
-┌───────────────────────┐
-│ User drops/opens file │
-└───────────┬───────────┘
-            ▼
-┌───────────────────────┐
-│ FileService.read_file │ ──► EditorArea QTextEdit
-│ + ODT→PDF subprocess  │     PdfViewer (fitz)
-└───────────┬───────────┘
-            ▼
-┌───────────────────────┐
-│   Editor → AI Worker  │ ──► Hugging Face pipeline (truncation + chunk)
-└───────────┬───────────┘
-            ▼
-┌───────────────────────┐
-│ Output Aggregator     │ ──► QTextEdit + QLabel QPixmap (+ PNG export)
-└───────────┬───────────┘
-            ▼
-┌───────────────────────┐
-│ Settings/Scheduler    │ ──► QSettings / JSON
-└───────────────────────┘
+view/ (Qt widgets only)
+  MainWindow · SideBar · EditorArea · PdfViewer · TaskWidget
+        │
+        ▼
+services/ (pure Python, lazily imports transformers/fitz)
+  FileService      reader registry, ODT→PDF via LibreOffice
+  SummarizerService  distilbart-cnn-6-6, 600-word chunks
+  KeyPointsService   kbir-inspec, B-KEY filtering
+  MindMapService     summary → indented outline
+  GraphVisualizer    networkx layout → matplotlib → QPixmap
+  SearchService · LifecycleService
+        │
+        ▼
+Persistence: QSettings · scheduler JSON · exported PDF/PNG
 ```
 
-<details>
-<summary><strong>Component Details (click to expand)</strong></summary>
+AI work is dispatched through `QRunnable` workers and returns via Qt signals. Models are singleton-loaded on first use, which keeps application start-up fast and avoids importing `torch` until an AI action is requested.
 
-#### Core / AI Layer
-
-**Location:** `services/summarizer.py`, `key_points_extractor.py`, `mind_map_generator.py`
-
-- Lazy singleton `get_summarizer()`/`get_extractor()` avoids import-time `torch` cost
-- Chunk at 600/450 words, `max_length` clamped to 150, `do_sample=False`
-- `MindMapWorker.Signals` (`finished`/`error`) for thread-safe UI
-
-#### Visualization Layer
-
-**Location:** `services/graph_visualizer.py`
-
-- `parse_indented_text` uses `path={-1: root}` and prunes `k > indent` for correct siblings
-- `create_mind_map_pixmap(graph, is_dark)` — `spring_layout(seed=42)`, `bbox_inches=tight`, `QPixmap.loadFromData`
-
-#### UI Layer
-
-**Location:** `view/main_window.py` (749 lines), `view/side_bar.py` (272 lines), `view/scheduler_tab.py`, `view/task_widget.py`, `view/theme_manager.py`, `view/styles.py`
-
-- `ThemeManager.sync_ui` blocks signals to avoid loops
-- `DARK_STYLESHEET` extracted to `view/styles.py:1`
-- `TaskWidget` signals `status_changed`/`priority_changed`/`request_delete`/`request_edit`
-
-#### Technical Highlights
-
-- Async via `QThreadPool`/`QRunnable` + `PreloadWorker` on startup
-- `QFileSystemModel.setNameFilters` + toggle to hide binaries
-- `QDesktopServices.openUrl` guarded with `QMessageBox` fallback
-- `pip-audit` + `dependabot` + `pre-commit` (ruff/black/mypy)
-
-</details>
-
----
-
-## Engineering Decisions
-
-<details>
-<summary><strong>Why PyQt5 over Electron/Tkinter?</strong> (click to expand)</summary>
-
-Native look on Linux/Win/mac, mature `QSettings`/`QFileSystemModel`, fine-grained stylesheet control. Electron heavier (100MB+), Tkinter lacks `QThreadPool`/`QTabWidget` polish. Trade-off: heavier install (Qt 60MB) but `offscreen` platform enables headless tests.
-
-**Benefits:** single-package `pip install`, dark theme via stylesheet, `xvfb` CI.
-
-</details>
-
-<details>
-<summary><strong>Why distilled transformers (DistilBART + KBI-R Inspec) over API?</strong> (click to expand)</summary>
-
-Offline, zero-cost, privacy. `sshleifer/distilbart-cnn-6-6` is 6-layer distilled BART (fast CPU, ~1s/ chunk). `ml6team/keyphrase-extraction-kbir-inspec` is token-classification with `B-KEY` tags, easy to format. API would be faster but needs key/quotas. Chunking + `truncation=True` cures 1024-token limit.
-
-**Chosen for:** demo portability, no `.env` secrets.
-
-</details>
-
-<details>
-<summary><strong>Why service-layer split?</strong> (click to expand)</summary>
-
-`view/` depends on Qt (hard to test), `services/` is pure Python (easy to mock `pipeline`). `tests/conftest.py:1` fakes Qt so `pytest -q` runs 31 tests without window server, while CI runs real Qt via `xvfb-run`.
-
-**Chosen for:** testability, lazy `transformers` import avoids 2s startup cost.
-
-</details>
-
----
-
-## Challenges & Lessons Learned
-
-<details>
-<summary><strong>Challenge 1: QSettings type=None crash</strong> (click to expand)</summary>
-
-`view/settings_manager.py:11` `value(..., type=None)` forwarded `None` to `QSettings.value(..., type=type)` which expects `bytes/str` → `TypeError` on Linux, blocking startup after fresh install.
-
-**Solution:** guard `if type is not None: return value(..., type=type) else: value(...)` + add `tests/conftest` fake `QSettings`.
-
-**Result:** GUI now starts headless and on Fedora Wayland (`QT_QPA_PLATFORM=offscreen` verified, screenshot 796×596).
-
-</details>
-
-<details>
-<summary><strong>Challenge 2: Mind-map “sibling becomes child”</strong> (click to expand)</summary>
-
-`graph_visualizer.py:21` `path={0: root}` overwrote root on `indent=0` siblings, so second `- B` became child of `- A`.
-
-**Solution:** root at `-1`, prune `k > indent`, fallback `max(valid) else -1`. Added 7 tests (`test_graph_visualizer.py:6`).
-
-**Result:** correct `Root → A, Root → B` for flat lists, hierarchical for indented.
-
-</details>
-
-<details>
-<summary><strong>Challenge 3: Disk quota on torch 2.14 CUDA</strong> (click to expand)</summary>
-
-`torch>=2.4` resolved to `2.14.0` + 553MB `nvidia_cudnn` → `[Errno 122] Disk quota exceeded` on Fedora, leaving `PyQt5` half-installed.
-
-**Solution:** document CPU wheel `pip install torch --index-url https://download.pytorch.org/whl/cpu` + `--no-cache-dir` + optional AI-less run (services handle `ImportError`). Added `pip-audit` guard.
-
-**Result:** slim install ~200MB, AI still works via CPU.
-
-</details>
-
-### Lessons Learned
-
-- Fake-Qt in `conftest` unlocks headless `pytest-qt` without `xvfb` locally.
-- Always clamp `max_length`/`min_length` and use `truncation=True` for transformers.
-- Extract stylesheets/theme logic early — 90-line inline CSS bloats God class.
-- Small `dependabot` + `pre-commit` loops catch drift before `pip-audit` screams.
-
----
-
-## Repository Structure
-
-```text
-.
-├── assets/               # real screenshots from running app
-│   ├── ai.png            # AI tab (Summarize / Key Points / Mind Map)
-│   ├── explore.png       # Explorer with filtered model + 2 tabs
-│   ├── scheduler.png     # Scheduler with priority/edit/delete
-│   └── setting.png       # Settings (theme/font/width) + editor
-├── docs/screenshots/     # placeholder keep + .placeholder files (CI-friendly)
-├── services/             # pure logic, no Qt dependency
-│   ├── file_service.py
-│   ├── summarizer.py
-│   ├── key_points_extractor.py
-│   ├── mind_map_generator.py
-│   ├── graph_visualizer.py
-│   ├── search_service.py     # find/replace delegates
-│   └── lifecycle.py          # close-event → close_all + sync
-├── view/
-│   ├── main_window.py    # 749 lines, QThreadPool, status bar
-│   ├── side_bar.py       # Explorer/AI/Scheduler/Settings tabs
-│   ├── scheduler_tab.py  # JSON persistence, edit/delete
-│   ├── task_widget.py    # checkbox + priority + edit/delete signals
-│   ├── pdf_viewer.py     # fitz + cleanup() on removeTab, keyboard/zoom controls
-│   ├── code_editor.py    # gutter, Pygments highlighting, brackets, auto-indent
-│   ├── styles.py         # LIGHT + DARK design tokens and stylesheets
-│   ├── theme_manager.py  # apply/apply_dark/apply_light/sync_ui
-│   ├── toolbar.py        # quick-action toolbar
-│   ├── markdown_preview.py  # live preview dock
-│   ├── recent_files.py   # File → Open Recent persistence
-│   ├── shortcuts_dialog.py  # keyboard shortcut reference
-│   ├── update_checker.py # threaded GitHub release check
-│   ├── icons.py          # runtime-painted app icon
-│   └── ...
-├── tests/
-│   ├── conftest.py       # fake Qt for headless runs
-│   ├── test_graph_visualizer.py
-│   ├── test_mind_map_generator.py
-│   ├── test_scheduler_tab.py
-│   └── ...
-├── main.py               # entry, app.exec()
-├── pyproject.toml        # [project.scripts] studymate = "main:main"
-├── requirements.txt      # PyQt5, torch, transformers, etc.
-├── requirements-dev.txt  # pytest-qt, ruff, black, mypy, pip-audit
-├── .pre-commit-config.yaml
-├── .github/workflows/python-ci.yml  # lint + test (xvfb, offscreen) + audit + codecov
-├── .github/dependabot.yml
-└── README.md
-```
-
----
-
-## Getting Started
-
-### Clone Repository
+## Testing
 
 ```bash
-git clone https://github.com/smartnotes-application/smartnotes-application.git
+python -m pytest tests -q
+```
+
+Current result: **45 passed**. The suite covers file-service readers, search, scheduler behaviour, settings, lifecycle handling, graph parsing and mind-map generation, plus `pytest-qt` widget tests for the main window and scheduler tab. Model inference itself is mocked or bypassed in unit tests — the tests verify orchestration, not summarisation quality.
+
+```bash
+ruff check .        # lint
+black --check .     # formatting
+mypy services       # types (where configured)
+```
+
+## Getting started
+
+```bash
+git clone https://github.com/amir-khoshdel-louyeh/smartnotes-application.git
 cd smartnotes-application
-```
-
-### Create Virtual Environment
-
-**Linux/macOS**
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-**Windows**
-```bash
-py -3.11 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-```
-
-### Install Dependencies
-
-```bash
-pip install -U pip
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-# slim AI (avoids CUDA quota):
+# CPU-only PyTorch avoids the large CUDA wheel:
 pip install torch --index-url https://download.pytorch.org/whl/cpu
-# or: pip install -e .  # uses [project.scripts] -> `studymate`
-pip install -r requirements-dev.txt  # for tests/lint
-pre-commit install
-```
-
-### Configuration
-
-No env vars. Optional: `libreoffice` for ODT, `xvfb` for headless tests.
-
-```bash
-sudo apt-get install -y libreoffice xvfb libxkbcommon-x11-0 libxcb-icccm4
-```
-
-### Run
-
-```bash
 python main.py
-# or
-studymate
-# first run downloads models to ~/.cache/huggingface (~300MB)
 ```
 
----
+The first AI action downloads roughly 300 MB of model weights from Hugging Face and caches them locally. Without `torch`/`transformers`, the editor still works; AI actions surface a graceful error instead of crashing.
 
-## Testing & Verification
+`.odt` support additionally requires LibreOffice on `PATH`.
 
-### Automated Testing
+## Engineering notes
 
-```bash
-QT_QPA_PLATFORM=offscreen xvfb-run -a python -m pytest tests -q --cov=. --cov-report=term-missing --cov-report=xml
-# 31 passed, 9 skipped (skipped = live Qt not installed locally, pass in CI xvfb)
+- **Lazy singleton models.** Importing `transformers` and loading weights inside the worker keeps start-up cheap and makes the failure mode explicit.
+- **Chunking for a 1024-token encoder.** Long notes are split at 600 words with truncation, instead of silently truncating the whole document.
+- **Dark-aware mind maps.** Graph colours are chosen from the active theme before rendering to a `QPixmap`, so exported images remain legible.
+- **Service/view split.** The highest-value structural decision: AI orchestration and graph construction can be unit-tested headlessly.
+
+## Limitations
+
+- Summarisation quality is bounded by small distilled models; no ROUGE or human evaluation is reported, so the README makes no quality claim.
+- CPU inference is slow on long documents (seconds per chunk); there is no GPU path or streaming output.
+- No cloud sync, multi-device support, or collaborative editing.
+- `.odt` conversion depends on an external LibreOffice binary and is not covered end-to-end in tests.
+- Screenshots show the light theme at 1920×1080; high-DPI and Wayland fractional scaling were not systematically evaluated.
+- Packaging is source-based; no signed installer is produced.
+
+## Roadmap
+
+- Streaming token output for summaries.
+- Retrieval over a notes folder (local embeddings) rather than one document at a time.
+- Export a study pack (summary + key points + mind map) as a single PDF.
+- Benchmark summary quality against a small labelled set.
+
+## Repository structure
+
+```text
+smartnotes-application/
+├── main.py                  # Application bootstrap
+├── view/                    # Qt widgets, workers, theme, icons
+├── services/                # File, AI, search, graph, lifecycle logic
+├── tests/                   # 45 pytest / pytest-qt tests
+├── assets/                  # Screenshots used here
+├── docs/                    # Contributor notes
+├── requirements.txt · pyproject.toml
+└── .pre-commit-config.yaml
 ```
 
-### Lint & Type
+## Tech stack
 
-```bash
-ruff check . --output-format=github
-black --check --line-length 100 .
-mypy services view --ignore-missing-imports --explicit-package-bases
-pip-audit --desc || true
-```
-
-### Manual Verification
-
-```bash
-QT_QPA_PLATFORM=offscreen python -c "from view.main_window import MainWindow; from PyQt5.QtWidgets import QApplication; app=QApplication([]); w=MainWindow(); w.show(); app.processEvents(); w.grab().save('/tmp/check.png'); print('OK')"
-# → PNG 796×596, This plugin does not support propagateSizeHints() is harmless
-```
-
-**Expected Outcome**
-- All 31 tests pass (services 92-100% as per `test_graph_visualizer`/`mind_map`)
-- `ruff`/`black`/`mypy` pass on `view/styles.py`/`theme_manager.py` (others have import sort warnings)
-- GUI starts, shows 4 tabs, AI preview renders, scheduler persists
-
----
-
-## Future Improvements
-
-- Swap `distilbart-cnn-6-6` → `facebook/bart-large-cnn` behind flag + quantized `optimum` for speed
-- Add `pytest-qt` live GUI tests (`qtbot` click on `Generate Mind Map` → assert `QPixmap` not null)
-- Vector store for notes (FAISS) + RAG over local docs instead of single-doc summarize
-- Packaging: `briefcase`/`fbs` binary, signed DMG/.deb
-- Evaluate ROUGE on CNN/DailyMail subset for summarizer config (Short/Medium/Long)
-
----
+`Python` · `PyQt5` · `transformers` / `torch` · `PyMuPDF` · `python-docx` / `odfpy` · `networkx` / `matplotlib` · `pytest` / `pytest-qt` · `ruff` / `black` / `mypy`
 
 ## Author
 
 **Amir Khoshdel Louyeh**
-
-**Connect**
-- **GitHub:** [github.com/amir-khoshdel-louyeh](https://github.com/amir-khoshdel-louyeh)
-- **LinkedIn:** [linkedin.com/in/amir-khoshdel-louyeh](https://linkedin.com/in/amir-khoshdel-louyeh)
-- **Email:** [amirkhoshdellouyeh@gmail.com](mailto:amirkhoshdellouyeh@gmail.com)
-
----
-
-## Disclaimer
-
-Educational and research demo. Models are DistilBART/KBI-R (MIT/Apache). Licensed under **MIT** — see [LICENSE](LICENSE).
-
----
-
-> Screenshots in `assets/` are from the live build (Fedora, offscreen 796×596). To refresh them: `QT_QPA_PLATFORM=offscreen python -c "from view.main_window import MainWindow; ...; w.grab().save('assets/ai.png')"`.
+[GitHub](https://github.com/amir-khoshdel-louyeh) · [LinkedIn](https://www.linkedin.com/in/amir-khoshdel-louyeh)
