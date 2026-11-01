@@ -2,8 +2,6 @@
 
 A local-first study workspace for reading notes and PDFs, summarising them, extracting key points and turning them into mind maps — with no API keys and no document leaving the machine.
 
-![StudyMate AI sidebar](assets/ai.png)
-
 `Python 3.11+` · `PyQt5` · `Hugging Face Transformers` · Desktop application · Working prototype
 
 ## At a glance
